@@ -19,7 +19,7 @@ class MapEditorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'infacilityMAP Editor v9',
+      title: 'infacilityMAP Editor v9.1',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const EditorScreen(),
     );
@@ -98,7 +98,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('マップエディタ v9（完全分割版）'),
+        title: const Text('マップエディタ v9.1（完全分割版）'),
         backgroundColor: Colors.blueGrey,
         actions: [
           ElevatedButton.icon(onPressed: _pickImage, icon: const Icon(Icons.map), label: const Text('見取り図を読込')),
@@ -152,7 +152,10 @@ class _EditorScreenState extends State<EditorScreen> {
                           int brush = currentBrush == 2 ? 1 : 0;
                           setState(() {
                             for (int y = minY; y <= maxY; y++) {
-                              for (int x = minX; x <= maxX; x++) _paintCellSingle(y, x, brush);
+                              // ↓ カッコ {} を追加して青い線を消しました！
+                              for (int x = minX; x <= maxX; x++) {
+                                _paintCellSingle(y, x, brush);
+                              }
                             }
                             dragStartX = null; dragStartY = null; dragCurrentX = null; dragCurrentY = null;
                           });

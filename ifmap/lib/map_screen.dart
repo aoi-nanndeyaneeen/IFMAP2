@@ -1,9 +1,12 @@
+// lib/map_screen.dart
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:mobile_scanner/mobile_scanner.dart'; // ← スキャナーをインポート
+import 'package:flutter/services.dart';
+
+import 'config.dart';
+import 'route_calculator.dart';
 import 'map_painter.dart';
+import 'qr_scanner_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -13,252 +16,176 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  Map<String, dynamic> nodes = {};
-  Map<String, dynamic> edges = {};
+  Map<String, dynamic> nodes1F = {};
+  Map<String, dynamic> nodes2F = {};
   
-  String? startNode;
-  String? goalNode;
-  List<String> currentPath = [];
+  String currentFloor = '1F'; 
+  String? startNode;          
+  String? goalNode;           
+  List<String> currentPath = []; 
+  
+  final TransformationController _txController = TransformationController();
 
   @override
   void initState() {
     super.initState();
-    _loadMapData();
+    _loadAllFloors();
   }
 
-  Future<void> _loadMapData() async {
-    final String jsonString = await rootBundle.loadString('assets/map_data.json');
-    final Map<String, dynamic> data = jsonDecode(jsonString);
-    setState(() {
-      nodes = data['nodes'];
-      edges = data['edges'];
-    });
+  Future<void> _loadAllFloors() async {
+    nodes1F = jsonDecode(await rootBundle.loadString(AppConfig.map1FPath));
+    nodes2F = jsonDecode(await rootBundle.loadString(AppConfig.map2FPath));
+    setState(() {});
   }
 
-  void _handleTap(Offset tapPosition) {
-    double minDist = double.infinity;
-    String? nearestNodeId;
+  String? _getFloor(String? node) {
+    if (node == null) return null;
+    if (nodes1F.containsKey(node)) return '1F';
+    if (nodes2F.containsKey(node)) return '2F';
+    return null;
+  }
 
-    nodes.forEach((id, data) {
-      final double dx = data['x'] - tapPosition.dx;
-      final double dy = data['y'] - tapPosition.dy;
-      final double dist = sqrt(dx * dx + dy * dy);
-      if (dist < minDist) {
-        minDist = dist;
-        nearestNodeId = id;
+  // ★修正：緑ブラシ以外でも、名前が「階段」なら階段として認識する最強の検索機能！
+  String? _getStairs(String floor) {
+    Map<String, dynamic> nodes = floor == '1F' ? nodes1F : nodes2F;
+    for (var entry in nodes.entries) {
+      if (entry.value['isStairs'] == true || entry.key == '階段' || entry.key.toLowerCase() == 'stairs') {
+        return entry.key;
       }
-    });
-
-    if (minDist < 50 && nearestNodeId != null) {
-      setState(() {
-        if (startNode == null) {
-          startNode = nearestNodeId;
-        } else if (goalNode == null) {
-          goalNode = nearestNodeId;
-          _calculatePath();
-        } else {
-          startNode = nearestNodeId;
-          goalNode = null;
-          currentPath = [];
-        }
-      });
     }
+    return null;
   }
 
-// === 修正版：2点間の距離を計算する関数 ===
-  double _getDistance(String node1, String node2) {
-    // (as num).toDouble() を使うことで、整数(100)でも小数(100.0)でも安全に変換します！
-    final double x1 = (nodes[node1]['x'] as num).toDouble();
-    final double y1 = (nodes[node1]['y'] as num).toDouble();
-    final double x2 = (nodes[node2]['x'] as num).toDouble();
-    final double y2 = (nodes[node2]['y'] as num).toDouble();
-    
-    return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2));
+  List<String> _getAllDestinations() {
+    List<String> dests = [];
+    void add(Map<String, dynamic> n) => n.forEach((k, v) { if (!k.startsWith('node_') && v['isStairs'] != true) dests.add(k); });
+    add(nodes1F); add(nodes2F);
+    return dests.toSet().toList();
   }
 
-  void _calculatePath() {
+  void _updatePath() {
+    currentPath.clear();
     if (startNode == null || goalNode == null) return;
 
-    Map<String, double> distances = {};
-    Map<String, String?> previous = {};
-    List<String> unvisited = nodes.keys.toList();
+    String startF = _getFloor(startNode)!;
+    String goalF = _getFloor(goalNode)!;
+    Map<String, dynamic> currentNodes = currentFloor == '1F' ? nodes1F : nodes2F;
 
-    for (var node in nodes.keys) {
-      distances[node] = double.infinity;
-    }
-    distances[startNode!] = 0;
-
-    while (unvisited.isNotEmpty) {
-      unvisited.sort((a, b) => distances[a]!.compareTo(distances[b]!));
-      String current = unvisited.first;
-      unvisited.remove(current);
-
-      if (current == goalNode) break;
-      if (distances[current] == double.infinity) break;
-
-      for (String neighbor in edges[current]) {
-        double alt = distances[current]! + _getDistance(current, neighbor);
-        if (alt < distances[neighbor]!) {
-          distances[neighbor] = alt;
-          previous[neighbor] = current;
-        }
+    if (startF == goalF) {
+      if (currentFloor == startF) currentPath = RouteCalculator.dijkstra(startNode!, goalNode!, currentNodes);
+    } else {
+      if (currentFloor == startF) {
+        String? stairs = _getStairs(startF);
+        if (stairs != null) currentPath = RouteCalculator.dijkstra(startNode!, stairs, currentNodes);
+      } else if (currentFloor == goalF) {
+        String? stairs = _getStairs(goalF);
+        if (stairs != null) currentPath = RouteCalculator.dijkstra(stairs, goalNode!, currentNodes);
       }
     }
-
-    List<String> path = [];
-    String? curr = goalNode;
-    while (curr != null) {
-      path.insert(0, curr);
-      curr = previous[curr];
-    }
-
-    setState(() {
-      currentPath = (path.isNotEmpty && path.first == startNode) ? path : [];
-    });
+    setState(() {});
   }
 
-  // === QRコードスキャン画面を開く関数 ===
-  // === QRコードスキャン画面を開く関数（大画面バージョン） ===
-  void _openScanner() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        // 現在の画面のサイズを取得
-        final size = MediaQuery.of(context).size;
-        
-        return Dialog(
-          insetPadding: const EdgeInsets.all(20), // 画面端からの余白を小さくする
-          child: SizedBox(
-            width: size.width * 0.9,   // 横幅は画面の90%
-            height: size.height * 0.8, // 高さは画面の80%
-            child: Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('現在地のQRコードをスキャン', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                // Expandedで、残りのスペースをすべてカメラに割り当てる
-                Expanded(
-                  child: MobileScanner(
-                    onDetect: (capture) {
-                      final List<Barcode> barcodes = capture.barcodes;
-                      for (final barcode in barcodes) {
-                        final String? qrData = barcode.rawValue;
-                        
-                        if (qrData != null && nodes.containsKey(qrData)) {
-                          Navigator.of(context).pop(); 
-                          
-                          setState(() {
-                            startNode = qrData; 
-                            if (goalNode != null) {
-                              _calculatePath();
-                            }
-                          });
-                          
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('現在地を設定しました: ${nodes[qrData]['name']}')),
-                          );
-                          break;
-                        }
-                      }
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('キャンセル', style: TextStyle(fontSize: 16)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  void _focusOnNode(String nodeId) {
+    Map<String, dynamic> nodes = currentFloor == '1F' ? nodes1F : nodes2F;
+    if (!nodes.containsKey(nodeId)) return;
+    
+    double x = (nodes[nodeId]['x'] as num).toDouble();
+    double y = (nodes[nodeId]['y'] as num).toDouble();
+    final size = MediaQuery.of(context).size;
+    double scale = 2.5; 
+
+    _txController.value = Matrix4.identity()
+      ..translate(-x * scale + size.width / 2, -y * scale + size.height / 2.5)
+      ..scale(scale);
+  }
+
+  void _onQRScanned(String qrData) {
+    String? floor = _getFloor(qrData);
+    if (floor != null) {
+      setState(() {
+        startNode = qrData;
+        currentFloor = floor;
+        _updatePath();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _focusOnNode(qrData));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (nodes.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    Map<String, dynamic> currentNodes = currentFloor == '1F' ? nodes1F : nodes2F;
+    String? startF = _getFloor(startNode);
+    String? goalF = _getFloor(goalNode);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ifmap Prototype'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Stack(
+      appBar: AppBar(title: Text('infacilityMAP - $currentFloor'), backgroundColor: Colors.blueGrey),
+      body: Column(
         children: [
-          Center(
-            child: InteractiveViewer(
-              maxScale: 5.0,
-              minScale: 0.1,
-              constrained: false,
-              child: GestureDetector(
-                onTapUp: (details) => _handleTap(details.localPosition),
-                child: CustomPaint(
-                  foregroundPainter: MapPainter(
-                    nodes: nodes,
-                    startNode: startNode,
-                    goalNode: goalNode,
-                    path: currentPath,
-                  ),
-                  child: Image.asset('assets/map.png'),
-                ),
-              ),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: DropdownButton<String>(
+              isExpanded: true,
+              hint: const Text('目的地を選択してください'),
+              value: goalNode,
+              items: _getAllDestinations().map((String val) => DropdownMenuItem(value: val, child: Text('$val (${_getFloor(val)})'))).toList(),
+              onChanged: (String? val) => setState(() { goalNode = val; _updatePath(); }),
             ),
           ),
-          Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search, color: Colors.grey),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          hint: const Text('目的地を選択してください'),
-                          value: goalNode,
-                          items: nodes.entries.map((entry) {
-                            return DropdownMenuItem<String>(
-                              value: entry.key,
-                              child: Text(entry.value['name']),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              goalNode = newValue;
-                              if (startNode != null) {
-                                _calculatePath();
-                              }
-                            });
-                          },
-                        ),
+          
+          if (startF != null && goalF != null && startF != goalF && currentFloor == startF)
+            Container(
+              width: double.infinity, color: Colors.green.shade100, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  setState(() { currentFloor = goalF; _updatePath(); });
+                  String? stairs = _getStairs(goalF);
+                  if (stairs != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusOnNode(stairs));
+                },
+                icon: const Icon(Icons.directions_walk),
+                label: Text('階段に着いたら押して $goalF へ'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              ),
+            ),
+
+          Expanded(
+            child: InteractiveViewer(
+              transformationController: _txController,
+              boundaryMargin: const EdgeInsets.all(double.infinity),
+              minScale: 0.1, maxScale: 5.0, constrained: false,
+              child: Center(
+                child: currentNodes.isEmpty ? const CircularProgressIndicator()
+                    : CustomPaint(
+                        size: const Size(AppConfig.mapCanvasSize, AppConfig.mapCanvasSize),
+                        painter: MapPainter(nodes: currentNodes, path: currentPath, startNode: startNode, goalNode: goalNode),
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
         ],
       ),
-      // === 画面右下にカメラ起動ボタンを配置 ===
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openScanner,
-        tooltip: 'QRコードをスキャン',
-        child: const Icon(Icons.qr_code_scanner),
+      
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: "btn1",
+            onPressed: () => setState(() { currentFloor = currentFloor == '1F' ? '2F' : '1F'; _updatePath(); }),
+            label: Text('$currentFloor 表示中 (切替)'),
+            icon: const Icon(Icons.layers),
+            backgroundColor: Colors.white,
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton.extended(
+            heroTag: "btn2",
+            onPressed: () async {
+              final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const QRScannerScreen()));
+              if (result != null) _onQRScanned(result);
+            },
+            label: const Text('QRスキャン'),
+            icon: const Icon(Icons.qr_code_scanner),
+          ),
+        ],
       ),
     );
   }

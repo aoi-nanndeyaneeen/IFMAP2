@@ -1,6 +1,7 @@
 // lib/json_exporter.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // クリップボード機能を追加！
 import 'config.dart';
 import 'map_cell.dart';
 
@@ -35,7 +36,22 @@ class JsonExporter {
       builder: (context) => AlertDialog(
         title: const Text('生成された nodes.json'),
         content: SizedBox(width: double.maxFinite, child: SingleChildScrollView(child: SelectableText(jsonString))),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('閉じる'))],
+        actions: [
+          // 【新機能】ワンクリックで完璧なテキストをコピーするボタン！
+          ElevatedButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: jsonString));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('クリップボードにコピーしました！')),
+                );
+              }
+            },
+            icon: const Icon(Icons.copy),
+            label: const Text('コピーする'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('閉じる'))
+        ],
       ),
     );
   }
