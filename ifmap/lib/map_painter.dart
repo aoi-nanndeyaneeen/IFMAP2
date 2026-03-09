@@ -1,125 +1,142 @@
 // lib/map_painter.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'config.dart';
 
 class MapPainter extends CustomPainter {
   final Map<String, dynamic> nodes;
   final List<String> path;
   final String? startNode;
   final String? goalNode;
+  final Offset? estimatedPosition;
+  final double? headingDeg; // ★ コンパス方位角（度）
 
-  MapPainter({required this.nodes, required this.path, this.startNode, this.goalNode});
+  MapPainter({
+    required this.nodes,
+    required this.path,
+    this.startNode,
+    this.goalNode,
+    this.estimatedPosition,
+    this.headingDeg,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // ペン設定（背景になる道は極限まで薄く）
     final edgePaint = Paint()..color = Colors.grey.withValues(alpha: 0.15)..strokeWidth = 2;
-    
-    // ★修正：ルートPaintを完全に不透明（透過なし）の赤に変更、少し細くして矢印を目立たせる
     final pathPaint = Paint()
-      ..color = Colors.red // 透過なし
-      ..strokeWidth = 4 // 少し細くする（以前は6）
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..color = Colors.red..strokeWidth = 4
+      ..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round;
 
-    // 【1層目】すべての道（エッジ）を一番後ろに描画
-    for (String nodeId in nodes.keys) {
-      final double x1 = (nodes[nodeId]['x'] as num).toDouble();
-      final double y1 = (nodes[nodeId]['y'] as num).toDouble();
-      for (String targetId in nodes[nodeId]['edges']) {
-        if (nodes.containsKey(targetId)) {
-          final double x2 = (nodes[targetId]['x'] as num).toDouble();
-          final double y2 = (nodes[targetId]['y'] as num).toDouble();
-          canvas.drawLine(Offset(x1, y1), Offset(x2, y2), edgePaint);
+    // 【1層目】すべての道
+    for (String nId in nodes.keys) {
+      final x1 = (nodes[nId]['x'] as num).toDouble();
+      final y1 = (nodes[nId]['y'] as num).toDouble();
+      for (String tId in nodes[nId]['edges']) {
+        if (nodes.containsKey(tId)) {
+          canvas.drawLine(Offset(x1, y1),
+              Offset((nodes[tId]['x'] as num).toDouble(), (nodes[tId]['y'] as num).toDouble()), edgePaint);
         }
       }
     }
 
-    // 【2層目】最短ルート（不透明な赤い線）と ★進行方向の赤い矢印★
+    // 【2層目】最短ルートと矢印
     for (int i = 0; i < path.length - 1; i++) {
-      if (nodes.containsKey(path[i]) && nodes.containsKey(path[i + 1])) {
-        final double x1 = (nodes[path[i]]['x'] as num).toDouble();
-        final double y1 = (nodes[path[i]]['y'] as num).toDouble();
-        // バグ修正：targetId ではなく path[i+1] の座標を取得
-        final double x2 = (nodes[path[i + 1]]['x'] as num).toDouble();
-        final double y2 = (nodes[path[i + 1]]['y'] as num).toDouble();
-        
-        // 1. 不透明な赤い線を引く（これが矢印の「軸」になる）
-        canvas.drawLine(Offset(x1, y1), Offset(x2, y2), pathPaint);
+      if (!nodes.containsKey(path[i]) || !nodes.containsKey(path[i + 1])) continue;
+      final x1 = (nodes[path[i]]['x'] as num).toDouble();
+      final y1 = (nodes[path[i]]['y'] as num).toDouble();
+      final x2 = (nodes[path[i + 1]]['x'] as num).toDouble();
+      final y2 = (nodes[path[i + 1]]['y'] as num).toDouble();
+      canvas.drawLine(Offset(x1, y1), Offset(x2, y2), pathPaint);
 
-        // 2. 矢印の描画（不透明な赤い三角形を、線の上に重ねて描く）
-        final double dist = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
-        if (dist > 8) { // 距離が短すぎると矢印が潰れるので除外
-          // ★修正：三角形のサイズを少し大きくする
-          const double arrowSize = 8; 
-          final double angle = atan2(y2 - y1, x2 - x1);
-          final Offset midPoint = Offset((x1 + x2) / 2, (y1 + y2) / 2);
-
-          final Path arrowPath = Path();
-          arrowPath.moveTo(midPoint.dx + arrowSize * cos(angle), midPoint.dy + arrowSize * sin(angle));
-          arrowPath.lineTo(midPoint.dx + arrowSize * cos(angle + 4 * pi / 5), midPoint.dy + arrowSize * sin(angle + 4 * pi / 5));
-          arrowPath.lineTo(midPoint.dx + arrowSize * cos(angle - 4 * pi / 5), midPoint.dy + arrowSize * sin(angle - 4 * pi / 5));
-          arrowPath.close();
-
-          // ★修正：透過なしの赤で三角形を描く。線の上に重なり、一体化して見える。
-          canvas.drawPath(arrowPath, Paint()..color = Colors.red); // 透過なし
-        }
+      final dist = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+      if (dist > 8) {
+        const arrowSize = 8.0;
+        final angle = atan2(y2 - y1, x2 - x1);
+        final mid = Offset((x1 + x2) / 2, (y1 + y2) / 2);
+        final ap = Path()
+          ..moveTo(mid.dx + arrowSize * cos(angle), mid.dy + arrowSize * sin(angle))
+          ..lineTo(mid.dx + arrowSize * cos(angle + 4 * pi / 5), mid.dy + arrowSize * sin(angle + 4 * pi / 5))
+          ..lineTo(mid.dx + arrowSize * cos(angle - 4 * pi / 5), mid.dy + arrowSize * sin(angle - 4 * pi / 5))
+          ..close();
+        canvas.drawPath(ap, Paint()..color = Colors.red);
       }
     }
 
-    // 【3層目】ノードの点と、文字（テキスト）を描画
-    for (String nodeId in nodes.keys) {
-      final double x = (nodes[nodeId]['x'] as num).toDouble();
-      final double y = (nodes[nodeId]['y'] as num).toDouble();
-
-      Paint currentPaint = Paint()..color = Colors.blue.withValues(alpha: 0.2);
-      double radius = 3;
-
-      if (nodeId == startNode) {
-        currentPaint = Paint()..color = Colors.green; radius = 8;
-      } else if (nodeId == goalNode) {
-        currentPaint = Paint()..color = Colors.orange; radius = 8;
-      } else if (nodes[nodeId]['isStairs'] == true || nodeId == '階段' || nodeId.toLowerCase() == 'stairs') {
-        currentPaint = Paint()..color = Colors.purple; radius = 6;
-      } else if (!nodeId.startsWith('node_')) {
-        currentPaint = Paint()..color = Colors.blueGrey; radius = 4;
-      }
-
-      canvas.drawCircle(Offset(x, y), radius, currentPaint);
-
-      // 文字の描画
-      if (!nodeId.startsWith('node_') || nodes[nodeId]['isStairs'] == true) {
-        String displayName = (nodes[nodeId]['isStairs'] == true || nodeId == '階段' || nodeId.toLowerCase() == 'stairs') ? '階段' : nodeId;
-        final textPainter = TextPainter(
-          text: TextSpan(text: displayName, style: const TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.bold)),
-          textDirection: TextDirection.ltr,
-        );
-        textPainter.layout();
-        final bgRect = Rect.fromLTWH(x - textPainter.width / 2 - 2, y + 8, textPainter.width + 4, textPainter.height + 2);
-        canvas.drawRect(bgRect, Paint()..color = Colors.white.withValues(alpha: 0.8));
-        textPainter.paint(canvas, Offset(x - textPainter.width / 2, y + 9));
+    // 【3層目】ノード点とラベル
+    for (String nId in nodes.keys) {
+      final x = (nodes[nId]['x'] as num).toDouble();
+      final y = (nodes[nId]['y'] as num).toDouble();
+      Paint pt = Paint()..color = Colors.blue.withValues(alpha: 0.2);
+      double r = 3;
+      if (nId == startNode)                                        { pt = Paint()..color = Colors.green;   r = 8; }
+      else if (nId == goalNode)                                    { pt = Paint()..color = Colors.orange;  r = 8; }
+      else if (nodes[nId]['isStairs'] == true || nId.toLowerCase() == 'stairs') { pt = Paint()..color = Colors.purple; r = 6; }
+      else if (!nId.startsWith('node_'))                          { pt = Paint()..color = Colors.blueGrey; r = 4; }
+      canvas.drawCircle(Offset(x, y), r, pt);
+      if (!nId.startsWith('node_') || nodes[nId]['isStairs'] == true) {
+        final label = (nodes[nId]['isStairs'] == true || nId.toLowerCase() == 'stairs') ? '階段' : nId;
+        _drawLabel(canvas, label, Offset(x, y + 9), Colors.black87);
       }
     }
 
-    // 【最前面】現在地のポップアップ
+    // 【4層目】QR確定地点バッジ
     if (startNode != null && nodes.containsKey(startNode)) {
-      final double x = (nodes[startNode!]['x'] as num).toDouble();
-      final double y = (nodes[startNode!]['y'] as num).toDouble();
-      
-      final textPainter = TextPainter(
-        text: const TextSpan(text: '📍現在地', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      final bgRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x - textPainter.width / 2 - 4, y - 28, textPainter.width + 8, textPainter.height + 4),
-        const Radius.circular(4)
-      );
-      canvas.drawRRect(bgRect, Paint()..color = Colors.blue.shade700); 
-      textPainter.paint(canvas, Offset(x - textPainter.width / 2, y - 26));
+      final x = (nodes[startNode!]['x'] as num).toDouble();
+      final y = (nodes[startNode!]['y'] as num).toDouble();
+      _drawBadge(canvas, '📍QR確定地点', Offset(x, y - 28), Colors.blue.shade700);
+    }
+
+    // 【5層目】推定現在地 + ★方位コーン
+    if (estimatedPosition != null) {
+      final p = estimatedPosition!;
+
+      // 方位コーン（headingDeg が取得できている場合のみ）
+      if (headingDeg != null) {
+        final mapAngle  = (headingDeg! - AppConfig.mapNorthDegrees + 360) % 360;
+        final cAngle    = mapAngle * pi / 180 - pi / 2; // キャンバス角に変換
+        const coneR     = 50.0;
+        const coneHalf  = pi / 6; // ±30度 の扇形
+        final cone = Path()
+          ..moveTo(p.dx, p.dy)
+          ..arcTo(Rect.fromCircle(center: p, radius: coneR),
+              cAngle - coneHalf, coneHalf * 2, false)
+          ..close();
+        canvas.drawPath(cone, Paint()..color = Colors.cyan.withValues(alpha: 0.25));
+      }
+
+      // 外輪（透過）+ 内円（不透明）
+      canvas.drawCircle(p, 14, Paint()..color = Colors.cyan.withValues(alpha: 0.25));
+      canvas.drawCircle(p, 8, Paint()..color = Colors.cyan.shade600);
+      _drawBadge(canvas, '🚶現在地（推定）', Offset(p.dx, p.dy - 28), Colors.cyan.shade700);
     }
   }
 
+  void _drawLabel(Canvas canvas, String text, Offset pos, Color color) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.drawRect(
+      Rect.fromLTWH(pos.dx - tp.width / 2 - 2, pos.dy, tp.width + 4, tp.height + 2),
+      Paint()..color = Colors.white.withValues(alpha: 0.8),
+    );
+    tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy));
+  }
+
+  void _drawBadge(Canvas canvas, String text, Offset pos, Color bgColor) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(pos.dx - tp.width / 2 - 4, pos.dy, tp.width + 8, tp.height + 4), const Radius.circular(4)),
+      Paint()..color = bgColor,
+    );
+    tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy + 2));
+  }
+
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant MapPainter old) =>
+      old.estimatedPosition != estimatedPosition || old.headingDeg != headingDeg ||
+      old.path != path || old.startNode != startNode;
 }

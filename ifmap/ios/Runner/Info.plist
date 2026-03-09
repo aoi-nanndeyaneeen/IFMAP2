@@ -45,5 +45,44 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSMotionUsageDescription</key>
+<string>現在地を推定するために歩数センサーを使用します</string>
+```
+
+---
+
+## キャリブレーション手順（重要）
+
+`config.dart` の `stepLengthPx` は施設ごとに調整が必要です。
+```
+① エディタで廊下の端→端のノード間ピクセル数をJSONで確認（例: 120px）
+② 同じ廊下を実際に歩いて歩数を数える（例: 25歩）
+③ stepLengthPx = 120 ÷ 25 = 4.8
+```
+
+---
+
+## 動作フロー
+```
+QRスキャン
+  └─ _onQRScanned() → _updatePath()
+       └─ StepTracker.startTracking(path, nodes)  ← 歩数ゼロにリセット
+            ↓ 歩くたびに
+       歩数 × stepLengthPx → ルート上の距離 → Offset(x, y)
+            ↓
+       MapPainter に estimatedPosition として渡す
+            ↓
+       シアンの🚶マーカーが動く ＋「あと約Xm」テキスト更新
+            ↓
+次のQRスキャンで補正リセット
+
+## コンパスのキャリブレーション手順（重要）
+
+コンパスの「方向案内」はマップの向きが分からないと機能しません。
+```
+① アプリを起動し、QRを読み込む
+② マップの「上」方向（地図の上辺）を実際の建物で向く
+③ コンパス表示の数値（例：「45°」）を読む
+④ config.dart の mapNorthDegrees = 45.0 に設定して再ビルド
 </dict>
 </plist>
