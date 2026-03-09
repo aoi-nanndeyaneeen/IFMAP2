@@ -11,11 +11,11 @@ class AppConfig {
   //   ① 既知の廊下（例:10m）を歩いて歩数を数える（例:15歩）
   //   ② 同区間のJSON上のピクセル数を確認（例:34px）
   //   ③ stepLengthPx = 34 ÷ 15 ≈ 2.3
-  static const double stepLengthPx = 2.75*4; //その計算だと2.75だが、実用に沿うようにするとこれにする。
+  static const double stepLengthPx = 2.4;
 
   // 加速度センサーの歩数検出しきい値 (m/s², 重力除去後)
   // 感度が高すぎる(誤検出多い)→大きく、低すぎる(進まない)→小さく
-  static const double stepAccelThreshold = 1;
+  static const double stepAccelThreshold = 3.0;
 
   // ── コンパス ───────────────────────────────────────────────────
   // マップの「上方向」が指す磁北方位角（度）
@@ -23,5 +23,5 @@ class AppConfig {
   // キャリブレーション手順:
   //   ① マップの「上」方向を向いてコンパス表示の値を読む
   //   ② その値をここに設定する
-  static const double mapNorthDegrees = -90.0;
+  static const double mapNorthDegrees = 0.0;
 }
