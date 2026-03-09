@@ -29,7 +29,23 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAllFloors();
+    // マップを読み込んだ「後」に、ブラウザのURLをチェックする
+    _loadAllFloors().then((_) {
+      _checkUrlParameter();
+    });
+  }
+
+  // ★新機能：ブラウザのURLから「?start=〇〇」を読み取る魔法の関数
+  void _checkUrlParameter() {
+    try {
+      final uri = Uri.base; // 現在のURLを取得
+      if (uri.queryParameters.containsKey('start')) {
+        String qrData = uri.queryParameters['start']!; // 「room_left」などを抜き出す
+        _onQRScanned(qrData); // 自動的に現在地セット！
+      }
+    } catch (e) {
+      // Webブラウザ以外（スマホアプリ版）で動かした場合は無視する
+    }
   }
 
   Future<void> _loadAllFloors() async {
@@ -45,7 +61,6 @@ class _MapScreenState extends State<MapScreen> {
     return null;
   }
 
-  // ★修正：緑ブラシ以外でも、名前が「階段」なら階段として認識する最強の検索機能！
   String? _getStairs(String floor) {
     Map<String, dynamic> nodes = floor == '1F' ? nodes1F : nodes2F;
     for (var entry in nodes.entries) {
@@ -94,9 +109,13 @@ class _MapScreenState extends State<MapScreen> {
     final size = MediaQuery.of(context).size;
     double scale = 2.5; 
 
-    _txController.value = Matrix4.identity()
-      ..translate(-x * scale + size.width / 2, -y * scale + size.height / 2.5)
-      ..scale(scale);
+    // ★警告修正：最新の「translationValues」と「scale」の書き方に変更！
+    _txController.value = Matrix4.translationValues(
+      -x * scale + size.width / 2, 
+      -y * scale + size.height / 2.5, 
+      0.0
+    // ignore: deprecated_member_use
+    )..scale(scale);
   }
 
   void _onQRScanned(String qrData) {

@@ -51,7 +51,7 @@ class MapPainter extends CustomPainter {
         final double dist = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
         if (dist > 8) { // 距離が短すぎると矢印が潰れるので除外
           // ★修正：三角形のサイズを少し大きくする
-          final double arrowSize = 8; 
+          const double arrowSize = 8; 
           final double angle = atan2(y2 - y1, x2 - x1);
           final Offset midPoint = Offset((x1 + x2) / 2, (y1 + y2) / 2);
 
