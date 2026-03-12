@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'config.dart';
 
-/// WaypointPanel と map_screen でも使う公開クラス
 class GateInfo {
   final String id;
-  final bool isEnter; // true=入る, false=出る
+  final bool isEnter;
   const GateInfo(this.id, {required this.isEnter});
   String get key   => isEnter ? '${id}_in' : '${id}_out';
   String get label => isEnter ? '「$id」に入りました' : '「$id」を出ました';
@@ -16,24 +15,23 @@ class GateInfo {
 
 class _Gate {
   final GateInfo info;
-  final double   px; // ルート上の累積距離（この距離で停止）
+  final double   px; // ルート累積距離(px)でここに達したら停止
   _Gate(this.info, this.px);
 }
 
-/// 加速度センサーで歩数を検出し、ゲート（入退室境界）で停止するトラッカー。
+/// 加速度センサーで歩数を検出し、ゲート境界で自動停止するトラッカー。
 class StepTracker {
   final double stepLengthPx;
 
-  List<String>         _path    = [];
-  Map<String, dynamic> _nodes   = {};
-  List<double>         _cumDist = [];
+  List<String>         _path     = [];
+  Map<String, dynamic> _nodes    = {};
+  List<double>         _cumDist  = [];
   double               _traveled = 0;
   bool                 _cooldown = false;
+  List<_Gate>          _gates    = [];
+  int                  _gateIdx  = 0;
 
-  List<_Gate> _gates   = [];
-  int         _gateIdx = 0;
-
-  StreamSubscription? _sub;
+  StreamSubscription?  _sub;
   final _posCtrl  = StreamController<Offset?>.broadcast();
   final _distCtrl = StreamController<double>.broadcast();
   final _gateCtrl = StreamController<GateInfo?>.broadcast();
@@ -65,48 +63,48 @@ class StepTracker {
         _cooldown = true;
         final cap = _gateIdx < _gates.length ? _gates[_gateIdx].px : totalRoutePx;
         _traveled = (_traveled + stepLengthPx).clamp(0.0, cap);
-        _posCtrl.add(_calcPosition()); _distCtrl.add(_traveled);
+        _posCtrl.add(_calcPosition());
+        _distCtrl.add(_traveled);
         Future.delayed(const Duration(milliseconds: 400), () => _cooldown = false);
       }
     }, onError: (_) {});
   }
 
-  /// ルート確定後に呼ぶ。
-  /// startId = 出発ノードID（名前付きなら「出る」ゲートを先頭に追加）
-  /// waypointIds = 経路近傍の名前付きノードID群
+  /// ルート確定後に呼ぶ。経路セグメント距離でゲートを設定する。
+  /// startId: 出発ノード（名前付きなら最初に「出る」ゲートを追加）
   void setGates(List<String> waypointIds, String? startId) {
     _gates = [];
     final r = AppConfig.waypointRadiusPx;
 
-    // 出発地点の「出る」ゲート（startIdが名前付きノードの場合のみ）
     if (startId != null && !startId.startsWith('node_')) {
       _tryAdd(GateInfo(startId, isEnter: false), r);
     }
 
-    // 各ウェイポイントをルート順にソートし、入退室ゲートペアを追加
+    // ★ セグメント(線分)への最短距離でゲート位置を決定
+    // ノードがまばらな廊下でも、沿道の部屋を正確に検出できる
     final sorted = waypointIds
-        .map((id) => MapEntry(id, _closestCumDist(id)))
+        .map((id) => MapEntry(id, _closestCumDistOnSegments(id)))
         .where((e) => e.value >= 0)
         .toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
     for (final e in sorted) {
-      _tryAdd(GateInfo(e.key, isEnter: true),  e.value - r); // 入る（手前）
-      _tryAdd(GateInfo(e.key, isEnter: false), e.value + r); // 出る（奥）
+      _tryAdd(GateInfo(e.key, isEnter: true),  e.value - r); // 部屋の手前で「入る」
+      _tryAdd(GateInfo(e.key, isEnter: false), e.value + r); // 部屋の奥で「出る」
     }
 
     _gateIdx = 0;
     _gateCtrl.add(nextGate);
   }
 
-  /// ゲートを確認（タップ）: その地点まで位置ジャンプし次ゲートを有効化
   void confirmGate(String gateKey) {
     final idx = _gates.indexWhere((g) => g.info.key == gateKey);
     if (idx == -1 || idx < _gateIdx) return;
     _traveled = _gates[idx].px;
     _gateIdx  = idx + 1;
     _gateCtrl.add(nextGate);
-    _posCtrl.add(_calcPosition()); _distCtrl.add(_traveled);
+    _posCtrl.add(_calcPosition());
+    _distCtrl.add(_traveled);
   }
 
   void dispose() {
@@ -116,33 +114,45 @@ class StepTracker {
 
   // ─── 内部処理 ─────────────────────────────────────────────────
 
-  /// 前のゲートより後ろかつ範囲内のみ追加
   void _tryAdd(GateInfo info, double px) {
     final clamped = px.clamp(0.0, totalRoutePx);
     final prevPx  = _gates.isEmpty ? -1.0 : _gates.last.px;
     if (clamped > prevPx) _gates.add(_Gate(info, clamped));
   }
 
-  /// ウェイポイントノードに最も近い経路ノードの累積距離を返す（見つからなければ -1）
-  double _closestCumDist(String wpId) {
+  /// 経路「セグメント（線分）」への最短距離でゲート位置を特定。
+  /// 線分上の最近傍点の累積距離を返す。見つからなければ -1。
+  double _closestCumDistOnSegments(String wpId) {
     if (!_nodes.containsKey(wpId)) return -1;
     final wx = (_nodes[wpId]['x'] as num).toDouble();
     final wy = (_nodes[wpId]['y'] as num).toDouble();
-    double minD = double.infinity; int best = 0;
-    for (int i = 0; i < _path.length; i++) {
-      if (!_nodes.containsKey(_path[i])) continue;
-      final px = (_nodes[_path[i]]['x'] as num).toDouble();
-      final py = (_nodes[_path[i]]['y'] as num).toDouble();
-      final d  = sqrt(pow(px - wx, 2) + pow(py - wy, 2));
-      if (d < minD) { minD = d; best = i; }
+    double minD = double.infinity, bestPx = -1;
+
+    for (int i = 0; i < _path.length - 1; i++) {
+      if (!_nodes.containsKey(_path[i]) || !_nodes.containsKey(_path[i + 1])) continue;
+      final x1 = (_nodes[_path[i]    ]['x'] as num).toDouble();
+      final y1 = (_nodes[_path[i]    ]['y'] as num).toDouble();
+      final x2 = (_nodes[_path[i + 1]]['x'] as num).toDouble();
+      final y2 = (_nodes[_path[i + 1]]['y'] as num).toDouble();
+      final dx = x2 - x1, dy = y2 - y1;
+      final lenSq = dx * dx + dy * dy;
+      final t  = lenSq == 0 ? 0.0 : ((wx - x1) * dx + (wy - y1) * dy) / lenSq;
+      final tc = t.clamp(0.0, 1.0);
+      final d  = sqrt(pow(wx - (x1 + tc * dx), 2) + pow(wy - (y1 + tc * dy), 2));
+      if (d < minD) {
+        minD   = d;
+        bestPx = _cumDist[i] + tc * (_cumDist[i + 1] - _cumDist[i]);
+      }
     }
-    return best < _cumDist.length ? _cumDist[best] : -1;
+    return bestPx;
   }
 
   void _buildCumDist() {
     _cumDist = [0.0];
     for (int i = 0; i < _path.length - 1; i++) {
-      if (!_nodes.containsKey(_path[i]) || !_nodes.containsKey(_path[i + 1])) { _cumDist.add(_cumDist.last); continue; }
+      if (!_nodes.containsKey(_path[i]) || !_nodes.containsKey(_path[i + 1])) {
+        _cumDist.add(_cumDist.last); continue;
+      }
       final x1 = (_nodes[_path[i]    ]['x'] as num).toDouble(), y1 = (_nodes[_path[i]    ]['y'] as num).toDouble();
       final x2 = (_nodes[_path[i + 1]]['x'] as num).toDouble(), y2 = (_nodes[_path[i + 1]]['y'] as num).toDouble();
       _cumDist.add(_cumDist.last + sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2)));

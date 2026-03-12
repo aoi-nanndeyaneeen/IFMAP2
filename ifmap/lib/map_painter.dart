@@ -22,9 +22,9 @@ class MapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final edgePaint = Paint()..color = Colors.grey.withValues(alpha: 0.15)..strokeWidth = 2;
+    final edgePaint = Paint()..color = Colors.grey.withValues(alpha: 0.4)..strokeWidth = 2;
     final pathPaint = Paint()
-      ..color = Colors.red..strokeWidth = 4
+      ..color = Colors.redAccent..strokeWidth = 4
       ..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round;
 
     // 【1層目】すべての道
@@ -58,7 +58,7 @@ class MapPainter extends CustomPainter {
           ..lineTo(mid.dx + arrowSize * cos(angle + 4 * pi / 5), mid.dy + arrowSize * sin(angle + 4 * pi / 5))
           ..lineTo(mid.dx + arrowSize * cos(angle - 4 * pi / 5), mid.dy + arrowSize * sin(angle - 4 * pi / 5))
           ..close();
-        canvas.drawPath(ap, Paint()..color = Colors.red);
+        canvas.drawPath(ap, Paint()..color = Colors.redAccent);
       }
     }
 
@@ -66,12 +66,12 @@ class MapPainter extends CustomPainter {
     for (String nId in nodes.keys) {
       final x = (nodes[nId]['x'] as num).toDouble();
       final y = (nodes[nId]['y'] as num).toDouble();
-      Paint pt = Paint()..color = Colors.blue.withValues(alpha: 0.2);
+      Paint pt = Paint()..color = Colors.blueGrey.withValues(alpha: 0.6);
       double r = 3;
       if (nId == startNode)                                        { pt = Paint()..color = Colors.green;   r = 8; }
       else if (nId == goalNode)                                    { pt = Paint()..color = Colors.orange;  r = 8; }
       else if (nodes[nId]['isStairs'] == true || nId.toLowerCase() == 'stairs') { pt = Paint()..color = Colors.purple; r = 6; }
-      else if (!nId.startsWith('node_'))                          { pt = Paint()..color = Colors.blueGrey; r = 4; }
+      else if (!nId.startsWith('node_'))                          { pt = Paint()..color = Colors.indigo; r = 4; }
       canvas.drawCircle(Offset(x, y), r, pt);
       if (!nId.startsWith('node_') || nodes[nId]['isStairs'] == true) {
         final label = (nodes[nId]['isStairs'] == true || nId.toLowerCase() == 'stairs') ? '階段' : nId;
