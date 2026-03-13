@@ -74,7 +74,7 @@ class StepTracker {
   /// startId: 出発ノード（名前付きなら最初に「出る」ゲートを追加）
   void setGates(List<String> waypointIds, String? startId) {
     _gates = [];
-    final r = AppConfig.waypointRadiusPx;
+    const r = AppConfig.waypointRadiusPx;
 
     if (startId != null && !startId.startsWith('node_')) {
       _tryAdd(GateInfo(startId, isEnter: false), r);

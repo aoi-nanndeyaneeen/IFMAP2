@@ -2,16 +2,26 @@
 import 'package:flutter/material.dart';
 import 'config.dart';
 
+// brushType: 0=消しゴム, 1=通路, 3=部屋(目的地/QR), 4=階段, 5=接続点
+// drawMode: 'stroke'=なぞり, 'rect'=矩形
 class ToolPalette extends StatelessWidget {
-  final int currentBrush;
-  final Function(int) onBrushSelected;
+  final int brushType;
+  final String drawMode; // 'stroke' or 'rect'
+  final Function(int) onTypeSelected;
+  final Function(String) onModeSelected;
 
-  const ToolPalette({super.key, required this.currentBrush, required this.onBrushSelected});
+  const ToolPalette({
+    super.key,
+    required this.brushType,
+    required this.drawMode,
+    required this.onTypeSelected,
+    required this.onModeSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 220,
+      width: 200,
       color: Colors.grey[200],
       child: ListView(children: [
         Padding(
@@ -19,39 +29,75 @@ class ToolPalette extends StatelessWidget {
           child: Text(
             '縮尺: 1マス=${AppConfig.metersPerCell}m\n'
             'キャンバス: ${AppConfig.cols}×${AppConfig.rows}マス\n'
-            '= ${(AppConfig.cols*AppConfig.metersPerCell).toStringAsFixed(0)}m × ${(AppConfig.rows*AppConfig.metersPerCell).toStringAsFixed(0)}m',
+            '= ${(AppConfig.cols * AppConfig.metersPerCell).toStringAsFixed(0)}m × ${(AppConfig.rows * AppConfig.metersPerCell).toStringAsFixed(0)}m',
             style: const TextStyle(fontSize: 10, color: Colors.black54),
           ),
         ),
         const Divider(),
-        _btn(1,  '通路 (なぞり)',    Colors.blue,              Icons.edit),
-        _btn(2,  '通路 (矩形)',      Colors.blue.shade800,     Icons.crop_square),
+
+        // ─── 描画モード切替 ──────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(children: [
+            Expanded(child: _modeBtn('stroke', Icons.edit, 'なぞり')),
+            const SizedBox(width: 6),
+            Expanded(child: _modeBtn('rect',   Icons.crop_square, '矩形')),
+          ]),
+        ),
         const Divider(),
-        _btn(3,  '★ 目的地/QR (黄)',Colors.yellow.shade700,   Icons.location_on),
-        _btn(4,  '▲ 階段 (緑)',      Colors.green,             Icons.stairs),
-        _btn(5,  '⇄ 接続点 (紫)',    Colors.deepPurple,        Icons.sync_alt),
+
+        // ─── ブラシタイプ ────────────────────────────────────────────
+        _typeBtn(1, '通路',         Colors.blue.shade600,    Icons.linear_scale),
+        _typeBtn(3, '部屋 (★)',     Colors.yellow.shade700,  Icons.location_on),
+        _typeBtn(4, '階段 (▲)',     Colors.green.shade600,   Icons.stairs),
+        _typeBtn(5, '接続点 (⇄)',   Colors.deepPurple,       Icons.sync_alt),
         const Divider(),
-        _btn(0,  '消しゴム (なぞり)', Colors.white,             Icons.edit_off),
-        _btn(-1, '消しゴム (矩形)',   Colors.grey.shade400,     Icons.crop_square),
+        _typeBtn(0, '消しゴム',     Colors.grey.shade400,    Icons.delete_outline),
       ]),
     );
   }
 
-  Widget _btn(int brush, String label, Color color, IconData icon) {
-    final sel = currentBrush == brush;
+  Widget _modeBtn(String mode, IconData icon, String label) {
+    final sel = drawMode == mode;
     return InkWell(
-      onTap: () => onBrushSelected(brush),
+      onTap: () => onModeSelected(mode),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-        color: sel ? Colors.blue.withValues(alpha: 0.2) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: sel ? Colors.blue.withValues(alpha: 0.2) : Colors.white,
+          border: Border.all(color: sel ? Colors.blue : Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: sel ? Colors.blue : Colors.grey.shade600),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+            color: sel ? Colors.blue : Colors.grey.shade700)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _typeBtn(int type, String label, Color color, IconData icon) {
+    final sel = brushType == type;
+    return InkWell(
+      onTap: () => onTypeSelected(type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        color: sel ? Colors.blue.withValues(alpha: 0.15) : Colors.transparent,
         child: Row(children: [
           Container(
-            width: 26, height: 26,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.7), border: Border.all(color: Colors.black45)),
-            child: Icon(icon, size: 16, color: Colors.black87),
+            width: 24, height: 24,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.75),
+              border: Border.all(color: sel ? Colors.blue : Colors.black38, width: sel ? 2 : 1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(icon, size: 14, color: Colors.white),
           ),
           const SizedBox(width: 10),
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+          Expanded(child: Text(label,
+            style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.bold : FontWeight.normal))),
           if (sel) const Icon(Icons.check, size: 14, color: Colors.blue),
         ]),
       ),

@@ -104,12 +104,17 @@ class _MapScreenState extends State<MapScreen> {
 
   /// 経路セグメントへの最短距離で近傍の名前付きノードを検出
   List<String> _nearbyWaypoints(List<String> path) {
-    final r = AppConfig.waypointRadiusPx;
+    const r = AppConfig.waypointRadiusPx;
     final res = <String>{};
     for (final e in _cn.entries) {
       final id = e.key;
-      if (id.startsWith('node_') || e.value['isStairs']==true ||
-          e.value['isConnector']==true || id==startNode || id==goalNode) continue;
+      if (id.startsWith('node_') ||
+          e.value['isStairs'] == true ||
+          e.value['isConnector'] == true ||
+          id == startNode ||
+          id == goalNode) {
+        continue;
+      }
       final cx = (e.value['x'] as num).toDouble(), cy = (e.value['y'] as num).toDouble();
       for (int i = 0; i < path.length - 1; i++) {
         if (!_cn.containsKey(path[i]) || !_cn.containsKey(path[i+1])) continue;
@@ -140,7 +145,7 @@ class _MapScreenState extends State<MapScreen> {
       }
     }
 
-    _traveled = 0; _estPos = null;
+    _traveled = 0; // 現在地推定用（ここではリセットしないほうが良い場合もあるが、仕様に合わせる）
     if (currentPath.isNotEmpty) {
       _tracker.startTracking(currentPath, _cn);
       _tracker.setGates(_nearbyWaypoints(currentPath), startNode);
@@ -149,14 +154,50 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {});
   }
 
+  void _onMapTap(Offset localPos) {
+    debugPrint('Map Tapped at (local): $localPos');
+    final double mapX = localPos.dx;
+    final double mapY = localPos.dy;
+
+    String? closestNode;
+    double minDist = AppConfig.waypointRadiusPx;
+
+    _cn.forEach((k, v) {
+      if (k.startsWith('node_')) {
+        return;
+      }
+      final dx = (v['x'] as num).toDouble() - mapX;
+      final dy = (v['y'] as num).toDouble() - mapY;
+      final d = sqrt(dx * dx + dy * dy);
+      if (d < minDist) {
+        minDist = d;
+        closestNode = k;
+      }
+    });
+
+    if (closestNode != null) {
+      debugPrint('Closest destination found: $closestNode');
+      setState(() {
+        goalNode = closestNode;
+        _updatePath();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('目的地を「$closestNode」に設定しました'),
+        duration: const Duration(seconds: 1),
+      ));
+    } else {
+      debugPrint('No destination node near the tap point.');
+    }
+  }
+
   // ─── 表示操作 ─────────────────────────────────────────────────
 
   void _centerOn(Offset p) {
     final box = _mapKey.currentContext?.findRenderObject() as RenderBox?;
     final vw = box?.size.width  ?? MediaQuery.of(context).size.width;
     final vh = box?.size.height ?? MediaQuery.of(context).size.height;
-    final sc = AppConfig.focusScale;
-    _tx.value = Matrix4.translationValues(-p.dx*sc + vw/2, -p.dy*sc + vh*AppConfig.focusVerticalRatio, 0)
+    const sc = AppConfig.focusScale;
+    _tx.value = Matrix4.translationValues(-p.dx * sc + vw / 2, -p.dy * sc + vh * AppConfig.focusVerticalRatio, 0)
       // ignore: deprecated_member_use
       ..scale(sc);
   }
@@ -177,11 +218,19 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _onArrived() {
+    // 最終目的地が現在の階にある場合のみポップアップを表示
+    // 階段到着・フロア移動中はここに来ない（_nearGoalでガード済み）
+    if (goalNode == null || _labelOf(goalNode) != _currentLabel) return;
+
+    // 既にダイアログが出ている場合は出さない
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+
     showDialog(context: context, builder: (_) => AlertDialog(
-      title: const Text('🎉 到着！'), content: Text('「$goalNode」に到着しました！'),
+      title: const Text('🎉 到着！'),
+      content: Text('「$goalNode」に到着しました！'),
       actions: [TextButton(onPressed: () {
         Navigator.pop(context);
-        setState(() { goalNode=null; currentPath.clear(); _followMode=false; });
+        setState(() { goalNode = null; currentPath.clear(); _followMode = false; });
       }, child: const Text('OK'))],
     ));
   }
@@ -203,7 +252,12 @@ class _MapScreenState extends State<MapScreen> {
     return 'あと約 $remM m';
   }
 
-  bool get _nearGoal => goalNode != null && _tracker.totalRoutePx > 0 && _traveled >= _tracker.totalRoutePx * 0.85;
+  /// 最終目的地が現在のフロアにあり、かつ経路の85%以上を歩いた場合のみtrue
+  bool get _nearGoal =>
+      goalNode != null &&
+      _labelOf(goalNode) == _currentLabel && // 現在フロアの目的地のみ
+      _tracker.totalRoutePx > 0 &&
+      _traveled >= _tracker.totalRoutePx * 0.85;
 
   String? get _connectorDestLabel {
     if (currentPath.isEmpty) return null;
@@ -225,26 +279,15 @@ class _MapScreenState extends State<MapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(startNode == null ? '現在地: 未設定 (QRをスキャン)' : '現在地: $startNode',
-              style: const TextStyle(fontSize: 13)),
-          Row(children: [
-            const Text('目的地: ', style: TextStyle(fontSize: 13)),
-            const SizedBox(width: 4),
-            Expanded(child: DropdownButton<String>(
-              isExpanded: true, value: goalNode,
-              hint: const Text('選択してください', style: TextStyle(fontSize: 13)),
-              items: _allDestinations().map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-              onChanged: (val) {
-                if (val == null) return;
-                setState(() { goalNode = val; _updatePath(); });
-                if (startNode != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(startNode!));
-              },
-            )),
-          ]),
-        ]),
-        backgroundColor: Colors.blueGrey.shade50,
-        toolbarHeight: 80,
+        title: Text(goalNode == null ? '目的地をタップして設定' : '目的地: $goalNode', style: const TextStyle(fontSize: 16)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.list),
+            onPressed: () => _showDestinationPicker(),
+          ),
+        ],
       ),
       body: Column(children: [
         // マップ切替チップ（マップが2つ以上のとき）
@@ -306,17 +349,30 @@ class _MapScreenState extends State<MapScreen> {
           child: InteractiveViewer(
             transformationController: _tx,
             boundaryMargin: const EdgeInsets.all(double.infinity),
-            minScale: 0.1, maxScale: 5.0, constrained: false,
-            child: Center(child: _cn.isEmpty
-              ? const CircularProgressIndicator()
-              : CustomPaint(
-                  size: const Size(AppConfig.mapCanvasSize, AppConfig.mapCanvasSize),
-                  painter: MapPainter(
-                    nodes: _cn, path: currentPath,
-                    startNode: startNode, goalNode: goalNode,
-                    estimatedPosition: _estPos, headingDeg: _heading,
-                  ),
-                )),
+            minScale: 0.1,
+            maxScale: 5.0,
+            constrained: false,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) => _onMapTap(details.localPosition),
+              child: _cn.isEmpty
+                  ? const SizedBox(
+                      width: AppConfig.mapCanvasSize,
+                      height: AppConfig.mapCanvasSize,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : CustomPaint(
+                      size: const Size(AppConfig.mapCanvasSize, AppConfig.mapCanvasSize),
+                      painter: MapPainter(
+                        nodes: _cn,
+                        path: currentPath,
+                        startNode: startNode,
+                        goalNode: goalNode,
+                        estimatedPosition: _estPos,
+                        headingDeg: _heading,
+                      ),
+                    ),
+            ),
           ),
         ),
       ]),
@@ -354,13 +410,46 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _showDestinationPicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('目的地を選択', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: ListView(
+              children: _allDestinations().map((v) => ListTile(
+                title: Text(v),
+                onTap: () {
+                  setState(() { goalNode = v; _updatePath(); });
+                  Navigator.pop(ctx);
+                  if (startNode != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(startNode!));
+                },
+              )).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _sectionButton(String label, Color color, IconData icon, VoidCallback onPressed) {
     return Container(
-      width: double.infinity, color: color.withValues(alpha: 0.1),
+      width: double.infinity,
+      color: color.withValues(alpha: 0.1),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ElevatedButton.icon(
-        onPressed: onPressed, icon: Icon(icon), label: Text(label),
-        style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white),
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
       ),
     );
   }
