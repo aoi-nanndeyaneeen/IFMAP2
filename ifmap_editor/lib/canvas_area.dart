@@ -1,4 +1,3 @@
-// lib/canvas_area.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'config.dart';
@@ -6,7 +5,7 @@ import 'map_cell.dart';
 
 class CanvasArea extends StatelessWidget {
   final List<List<MapCell>> grid;
-  final int currentBrush;
+  final int brushType;
   final Uint8List? bgImageBytes;
   final TransformationController? transformController;
   final int? dragStartX, dragStartY, dragCurrentX, dragCurrentY;
@@ -17,7 +16,7 @@ class CanvasArea extends StatelessWidget {
   const CanvasArea({
     super.key,
     required this.grid,
-    required this.currentBrush,
+    required this.brushType,
     required this.bgImageBytes,
     this.transformController,
     this.dragStartX, this.dragStartY, this.dragCurrentX, this.dragCurrentY,
@@ -30,7 +29,6 @@ class CanvasArea extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 基本の１マスサイズを計算（画面に収まるサイズ or 最小20px）
         double baseCellWidth = constraints.maxWidth / AppConfig.cols;
         double baseCellHeight = constraints.maxHeight / AppConfig.rows;
         double baseSize = baseCellWidth < baseCellHeight ? baseCellWidth : baseCellHeight;
@@ -50,10 +48,10 @@ class CanvasArea extends StatelessWidget {
           decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 2)),
           child: InteractiveViewer(
             transformationController: transformController,
-            panEnabled: currentBrush == 5, // ブラシ5(手のひら)の時だけドラッグ移動
-            scaleEnabled: true, // ピンチ・マウスホイールでの拡大縮小
+            panEnabled: brushType == 6, // ブラシ6(手のひら)の時だけドラッグ移動
+            scaleEnabled: true,
             trackpadScrollCausesScale: true,
-            constrained: false, // ★子要素（SizedBox）が画面より大きくなるのを許可する
+            constrained: false, // 子要素が画面より大きくなるのを許可
             minScale: 0.1,
             maxScale: 20.0,
             boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -67,7 +65,6 @@ class CanvasArea extends StatelessWidget {
                   if (e.buttons == 4) {
                     if (transformController != null) {
                       final matrix = transformController!.value.clone();
-                      // ホイールクリック押し込み中は座標を直接移動する
                       matrix[12] += e.delta.dx;
                       matrix[13] += e.delta.dy;
                       transformController!.value = matrix;
@@ -96,7 +93,7 @@ class CanvasArea extends StatelessWidget {
                           painter: GridPainter(
                             grid: grid,
                             cellSize: cellSize,
-                            currentBrush: currentBrush,
+                            brushType: brushType,
                             dragStartX: dragStartX,
                             dragStartY: dragStartY,
                             dragCurrentX: dragCurrentX,
@@ -119,13 +116,13 @@ class CanvasArea extends StatelessWidget {
 class GridPainter extends CustomPainter {
   final List<List<MapCell>> grid;
   final double cellSize;
-  final int currentBrush;
+  final int brushType;
   final int? dragStartX, dragStartY, dragCurrentX, dragCurrentY;
 
   GridPainter({
     required this.grid,
     required this.cellSize,
-    required this.currentBrush,
+    required this.brushType,
     this.dragStartX,
     this.dragStartY,
     this.dragCurrentX,
@@ -138,12 +135,12 @@ class GridPainter extends CustomPainter {
     int cols = AppConfig.cols;
 
     final Paint borderPaint = Paint()
-      ..color = Colors.grey[500]! // 少し濃いグレーに変更（見やすくする）
+      ..color = Colors.grey[500]!
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
     final Paint outerBorderPaint = Paint()
-      ..color = Colors.black // 外枠は黒で太く
+      ..color = Colors.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
@@ -165,7 +162,8 @@ class GridPainter extends CustomPainter {
         Color color = cell.color;
 
         if (hasDrag && x >= minX && x <= maxX && y >= minY && y <= maxY) {
-          color = currentBrush == 2 ? Colors.blue.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.8);
+          Color tempColor = MapCell(x: x, y: y, type: brushType).color;
+          color = tempColor == Colors.transparent ? Colors.grey.withValues(alpha: 0.5) : tempColor;
         }
 
         if (color != Colors.transparent) {
@@ -176,7 +174,11 @@ class GridPainter extends CustomPainter {
 
         if (cell.name != null) {
           Rect rect = Rect.fromLTWH(x * cellSize, y * cellSize, cellSize, cellSize);
-          IconData iconData = cell.type == 4 ? Icons.stairs : Icons.location_on;
+          IconData iconData = Icons.meeting_room;
+          if (cell.type == 3) iconData = Icons.meeting_room; // 部屋(黄)
+          if (cell.type == 4) iconData = Icons.stairs;       // 階段(緑)
+          if (cell.type == 5) iconData = Icons.sync_alt;     // 接続点(紫)
+          
           TextPainter iconPainter = TextPainter(
             text: TextSpan(
               text: String.fromCharCode(iconData.codePoint),
@@ -232,7 +234,6 @@ class GridPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y * cellSize), Offset(size.width, y * cellSize), borderPaint);
     }
 
-    // 一番外側の枠線を太く描画してはっきりとわかるようにする
     canvas.drawRect(Rect.fromLTWH(0, 0, cols * cellSize, rows * cellSize), outerBorderPaint);
   }
 
