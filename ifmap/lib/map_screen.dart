@@ -61,7 +61,9 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadAllMaps() async {
     for (final s in AppConfig.mapSections) {
-      _maps[s.label] = jsonDecode(await rootBundle.loadString(s.path));
+      final data = jsonDecode(await rootBundle.loadString(s.path)) as Map<String, dynamic>;
+      data.remove('_editorData'); // エディタ用のメタデータを破棄（クラッシュ防止とメモリ解放）
+      _maps[s.label] = data;
     }
     setState(() {});
   }

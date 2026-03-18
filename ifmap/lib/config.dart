@@ -12,9 +12,14 @@ class AppConfig {
   // 建物・フロアを追加するときはここにエントリを足すだけ。
   // あわせて pubspec.yaml の assets: にも同じパスを追加すること。
   static const List<MapSection> mapSections = [
-    MapSection(path: 'assets/map_1f.json', label: '1F'),
-    MapSection(path: 'assets/map_2f.json', label: '2F'),
-    // MapSection(path: 'assets/map_newbldg_1f.json', label: '新館1F'),
+    // --- 自宅 (現在はNITTC用として使っているため非表示) ---
+    // MapSection(path: 'assets/home/map_1f.json', label: 'Home_1F'),
+    // MapSection(path: 'assets/home/map_2f.json', label: 'Home_2F'),
+    
+    // --- NITTC 本棟 ---
+    MapSection(path: 'assets/NITTC/NITTC本棟_1F.json', label: 'NITTC_1F'),
+    MapSection(path: 'assets/NITTC/NITTC本棟_2F.json', label: 'NITTC_2F'),
+    MapSection(path: 'assets/NITTC/NITTC本棟_3F.json', label: 'NITTC_3F'),
   ];
 
   // ── 縮尺（ifmap_editor の config.dart と必ず揃えること） ────────

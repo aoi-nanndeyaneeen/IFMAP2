@@ -45,6 +45,7 @@ class MapPainter extends CustomPainter {
 
     // 【1層目】すべての道（背景として薄く）
     for (String nId in nodes.keys) {
+      if (nId == '_editorData') continue;
       final x1 = (nodes[nId]['x'] as num).toDouble();
       final y1 = (nodes[nId]['y'] as num).toDouble();
       for (String tId in nodes[nId]['edges']) {
@@ -89,6 +90,7 @@ class MapPainter extends CustomPainter {
     final List<String> specialNodes = []; // スタート、ゴール、階段
 
     for (String nId in nodes.keys) {
+      if (nId == '_editorData') continue;
       if (nId == startNode || nId == goalNode || nodes[nId]['isStairs'] == true) {
         specialNodes.add(nId);
       } else if (!nId.startsWith('node_')) {

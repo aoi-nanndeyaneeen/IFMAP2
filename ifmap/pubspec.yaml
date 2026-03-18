@@ -26,7 +26,10 @@ flutter:
     # ── マップJSONファイル ──────────────────────────────────────
     # config.dart の mapSections と完全に対応させること
     # 建物・フロアを追加したらここにも追加する
-    - assets/map_1f.json
-    - assets/map_2f.json
+    - assets/home/map_1f.json
+    - assets/home/map_2f.json
     # - assets/map_newbldg_1f.json   # 新館を追加するときはコメントを外す
     # - assets/map_newbldg_2f.json
+    - assets/NITTC/NITTC本棟_1F.json
+    - assets/NITTC/NITTC本棟_2F.json
+    - assets/NITTC/NITTC本棟_3F.json
