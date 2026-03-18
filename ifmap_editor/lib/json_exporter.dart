@@ -22,12 +22,27 @@ class JsonExporter {
           if (!cell.isWalkable) continue;
           final id     = cell.name ?? 'node_$y-$x';
           final edges  = <String>[];
-          for (final d in [[-1,0],[1,0],[0,-1],[0,1]]) {
-            final ny = y + d[0], nx = x + d[1];
+          
+          final dirs = [
+            [-1, 0, 'top'],
+            [1, 0, 'bottom'],
+            [0, -1, 'left'],
+            [0, 1, 'right']
+          ];
+          for (final d in dirs) {
+            final dy = d[0] as int, dx = d[1] as int, dir = d[2] as String;
+            final ny = y + dy, nx = x + dx;
+            
+            if (dir == 'top' && cell.wallTop) continue;
+            if (dir == 'bottom' && cell.wallBottom) continue;
+            if (dir == 'left' && cell.wallLeft) continue;
+            if (dir == 'right' && cell.wallRight) continue;
+
             if (ny >= 0 && ny < AppConfig.rows && nx >= 0 && nx < AppConfig.cols && grid[ny][nx].isWalkable) {
               edges.add(grid[ny][nx].name ?? 'node_$ny-$nx');
             }
           }
+          
           nodes[id] = {
             'x': x * AppConfig.pxPerCell,
             'y': y * AppConfig.pxPerCell,
@@ -42,11 +57,15 @@ class JsonExporter {
 
       final editorData = {
         'bgImageBase64': bgImageBytes != null ? base64Encode(bgImageBytes!) : null,
-        'cells': grid.expand((row) => row).where((c) => c.type != 0).map((c) => {
+        'cells': grid.expand((row) => row).where((c) => c.type != 0 || c.wallTop || c.wallBottom || c.wallLeft || c.wallRight).map((c) => {
           'x': c.x, 'y': c.y, 'type': c.type,
           if (c.name != null) 'name': c.name,
           if (c.connectsToMap != null) 'connectsToMap': c.connectsToMap,
           if (c.connectsToNode != null) 'connectsToNode': c.connectsToNode,
+          if (c.wallTop) 'wallTop': true,
+          if (c.wallBottom) 'wallBottom': true,
+          if (c.wallLeft) 'wallLeft': true,
+          if (c.wallRight) 'wallRight': true,
         }).toList(),
       };
       nodes['_editorData'] = editorData;

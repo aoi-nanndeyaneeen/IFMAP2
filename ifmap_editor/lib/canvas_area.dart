@@ -9,8 +9,8 @@ class CanvasArea extends StatelessWidget {
   final Uint8List? bgImageBytes;
   final TransformationController? transformController;
   final int? dragStartX, dragStartY, dragCurrentX, dragCurrentY;
-  final Function(int, int, int) onPointerDown;
-  final Function(int, int, int) onPointerMove;
+  final Function(int, int, int, Offset, double) onPointerDown;
+  final Function(int, int, int, Offset, double) onPointerMove;
   final VoidCallback onPointerUp;
 
   const CanvasArea({
@@ -38,10 +38,10 @@ class CanvasArea extends StatelessWidget {
         double totalWidth = cellSize * AppConfig.cols;
         double totalHeight = cellSize * AppConfig.rows;
 
-        void resolvePointer(PointerEvent event, Function(int, int, int) action) {
+        void resolvePointer(PointerEvent event, Function(int, int, int, Offset, double) action) {
           int x = (event.localPosition.dx / cellSize).floor();
           int y = (event.localPosition.dy / cellSize).floor();
-          if (x >= 0 && x < AppConfig.cols && y >= 0 && y < AppConfig.rows) action(y, x, event.buttons);
+          if (x >= 0 && x < AppConfig.cols && y >= 0 && y < AppConfig.rows) action(y, x, event.buttons, event.localPosition, cellSize);
         }
 
         return Container(
@@ -232,6 +232,29 @@ class GridPainter extends CustomPainter {
     }
     for (int y = 0; y <= rows; y++) {
       canvas.drawLine(Offset(0, y * cellSize), Offset(size.width, y * cellSize), borderPaint);
+    }
+
+    final Paint wallPaint = Paint()
+      ..color = Colors.red.shade900
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.square;
+
+    for (int y = 0; y < rows; y++) {
+      for (int x = 0; x < cols; x++) {
+        MapCell cell = grid[y][x];
+        if (cell.wallTop) {
+           canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset((x+1)*cellSize, y*cellSize), wallPaint);
+        }
+        if (cell.wallBottom) {
+           canvas.drawLine(Offset(x*cellSize, (y+1)*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), wallPaint);
+        }
+        if (cell.wallLeft) {
+           canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset(x*cellSize, (y+1)*cellSize), wallPaint);
+        }
+        if (cell.wallRight) {
+           canvas.drawLine(Offset((x+1)*cellSize, y*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), wallPaint);
+        }
+      }
     }
 
     canvas.drawRect(Rect.fromLTWH(0, 0, cols * cellSize, rows * cellSize), outerBorderPaint);

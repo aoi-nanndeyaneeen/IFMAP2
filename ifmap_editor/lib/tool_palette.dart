@@ -50,6 +50,7 @@ class ToolPalette extends StatelessWidget {
         _typeBtn(0, '消しゴム',     Colors.grey.shade400,    Icons.delete_outline),
         const Divider(),
         _typeBtn(6, '手のひら',     Colors.orange,           Icons.pan_tool),
+        _typeBtn(7, '壁 (境界)',      Colors.red.shade900,     Icons.border_outer),
       ]),
     );
   }

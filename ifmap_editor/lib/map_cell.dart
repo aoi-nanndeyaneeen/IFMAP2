@@ -9,8 +9,14 @@ class MapCell {
   String? connectsToMap;  // 接続先マップラベル (例: '新館1F')
   String? connectsToNode; // 接続先ノードID    (例: 'connector_from_main')
 
+  bool wallTop;
+  bool wallRight;
+  bool wallBottom;
+  bool wallLeft;
+
   MapCell({required this.x, required this.y, this.type = 0,
-           this.name, this.connectsToMap, this.connectsToNode});
+           this.name, this.connectsToMap, this.connectsToNode,
+           this.wallTop = false, this.wallRight = false, this.wallBottom = false, this.wallLeft = false});
 
   Color get color => switch (type) {
     1 => Colors.blue.withValues(alpha: 0.45),

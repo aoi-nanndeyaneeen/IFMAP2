@@ -51,7 +51,9 @@ class _EditorScreenState extends State<EditorScreen> {
   List<List<MapCell>> _cloneGrid(List<List<MapCell>> source) {
     return source.map((r) => r.map((c) => MapCell(
       x: c.x, y: c.y, type: c.type, name: c.name,
-      connectsToMap: c.connectsToMap, connectsToNode: c.connectsToNode
+      connectsToMap: c.connectsToMap, connectsToNode: c.connectsToNode,
+      wallTop: c.wallTop, wallBottom: c.wallBottom, 
+      wallLeft: c.wallLeft, wallRight: c.wallRight,
     )).toList()).toList();
   }
 
@@ -127,15 +129,29 @@ class _EditorScreenState extends State<EditorScreen> {
 
           setState(() {
             bgImageBytes = bgBase64 != null ? base64Decode(bgBase64) : null;
+            
+            // 全体を初期化する
             for (int y = 0; y < AppConfig.rows; y++) {
               for (int x = 0; x < AppConfig.cols; x++) {
-                final cData = cellsData[y][x];
-                grid[y][x] = MapCell(
-                  x: x, y: y,
-                  type: cData['type'],
+                grid[y][x] = MapCell(x: x, y: y);
+              }
+            }
+
+            // データが存在するセルだけ上書きする
+            for (var cData in cellsData) {
+              int cx = cData['x'];
+              int cy = cData['y'];
+              if (cx >= 0 && cx < AppConfig.cols && cy >= 0 && cy < AppConfig.rows) {
+                grid[cy][cx] = MapCell(
+                  x: cx, y: cy,
+                  type: cData['type'] ?? 0,
                   name: cData['name'],
                   connectsToMap: cData['connectsToMap'],
                   connectsToNode: cData['connectsToNode'],
+                  wallTop: cData['wallTop'] == true,
+                  wallBottom: cData['wallBottom'] == true,
+                  wallLeft: cData['wallLeft'] == true,
+                  wallRight: cData['wallRight'] == true,
                 );
               }
             }
@@ -253,13 +269,60 @@ class _EditorScreenState extends State<EditorScreen> {
     return confirmed && nameCtrl.text.isNotEmpty;
   }
 
-  Future<void> _onPointerDown(int y, int x, int buttons) async {
+  // 指を離すまで同じ壁を何度も上書きしないためのセット
+  final Set<String> _currentStrokeWalls = {};
+
+  void _applyWall(int y, int x, Offset localPos, double cellSize, bool erase) {
+    double relX = localPos.dx % cellSize;
+    double relY = localPos.dy % cellSize;
+    
+    double distTop = relY;
+    double distBottom = cellSize - relY;
+    double distLeft = relX;
+    double distRight = cellSize - relX;
+    
+    double minDist = [distTop, distBottom, distLeft, distRight].reduce((a, b) => a < b ? a : b);
+    
+    String direction = 'right';
+    if (minDist == distTop) direction = 'top';
+    else if (minDist == distBottom) direction = 'bottom';
+    else if (minDist == distLeft) direction = 'left';
+
+    String wallId = '${y}_${x}_$direction';
+    if (_currentStrokeWalls.contains(wallId)) return;
+    _currentStrokeWalls.add(wallId);
+    
+    setState(() {
+      if (direction == 'top') {
+        grid[y][x].wallTop = !erase;
+        if (y > 0) grid[y-1][x].wallBottom = !erase;
+      } else if (direction == 'bottom') {
+        grid[y][x].wallBottom = !erase;
+        if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = !erase;
+      } else if (direction == 'left') {
+        grid[y][x].wallLeft = !erase;
+        if (x > 0) grid[y][x-1].wallRight = !erase;
+      } else if (direction == 'right') {
+        grid[y][x].wallRight = !erase;
+        if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = !erase;
+      }
+    });
+  }
+
+  Future<void> _onPointerDown(int y, int x, int buttons, Offset localPos, double cellSize) async {
     isRightClickEraser = buttons == 2;
-    int activeBrush = isRightClickEraser ? 0 : brushType;
+    int activeBrush = brushType;
+    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
     if (activeBrush == 6) return;
 
     _saveHistory();
     currentStrokeCells.clear();
+    _currentStrokeWalls.clear();
+
+    if (activeBrush == 7) {
+      _applyWall(y, x, localPos, cellSize, isRightClickEraser);
+      return;
+    }
 
     if (activeBrush == 3 || activeBrush == 4 || activeBrush == 5) {
        final clickedCell = grid[y][x];
@@ -272,19 +335,55 @@ class _EditorScreenState extends State<EditorScreen> {
 
     if (isRightClickEraser || drawMode == 'stroke') {
       currentStrokeCells.add(grid[y][x]);
-      setState(() => grid[y][x].type = activeBrush);
+      setState(() {
+        grid[y][x].type = activeBrush;
+        if (activeBrush == 0) {
+          grid[y][x].name = null;
+          grid[y][x].connectsToMap = null;
+          grid[y][x].connectsToNode = null;
+          grid[y][x].wallTop = false;
+          grid[y][x].wallBottom = false;
+          grid[y][x].wallLeft = false;
+          grid[y][x].wallRight = false;
+          if (y > 0) grid[y-1][x].wallBottom = false;
+          if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = false;
+          if (x > 0) grid[y][x-1].wallRight = false;
+          if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = false;
+        }
+      });
     } else {
       setState(() { dragStartX = x; dragStartY = y; dragCurrentX = x; dragCurrentY = y; });
     }
   }
 
-  void _onPointerMove(int y, int x, int buttons) {
-    int activeBrush = isRightClickEraser ? 0 : brushType;
+  void _onPointerMove(int y, int x, int buttons, Offset localPos, double cellSize) {
+    int activeBrush = brushType;
+    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
     if (activeBrush == 6) return;
+
+    if (activeBrush == 7) {
+      _applyWall(y, x, localPos, cellSize, isRightClickEraser);
+      return;
+    }
 
     if (isRightClickEraser || drawMode == 'stroke') {
       currentStrokeCells.add(grid[y][x]);
-      setState(() => grid[y][x].type = activeBrush);
+      setState(() {
+        grid[y][x].type = activeBrush;
+        if (activeBrush == 0) {
+          grid[y][x].name = null;
+          grid[y][x].connectsToMap = null;
+          grid[y][x].connectsToNode = null;
+          grid[y][x].wallTop = false;
+          grid[y][x].wallBottom = false;
+          grid[y][x].wallLeft = false;
+          grid[y][x].wallRight = false;
+          if (y > 0) grid[y-1][x].wallBottom = false;
+          if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = false;
+          if (x > 0) grid[y][x-1].wallRight = false;
+          if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = false;
+        }
+      });
     } else {
       if (dragStartX != null) {
         setState(() { dragCurrentX = x; dragCurrentY = y; });
@@ -293,8 +392,9 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Future<void> _onPointerUp() async {
-    int activeBrush = isRightClickEraser ? 0 : brushType;
-    if (activeBrush == 6) return;
+    int activeBrush = brushType;
+    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
+    if (activeBrush == 6 || activeBrush == 7) return;
 
     if (!isRightClickEraser && drawMode == 'rect') {
       if (dragStartX != null && dragStartY != null && dragCurrentX != null && dragCurrentY != null) {
@@ -306,6 +406,19 @@ class _EditorScreenState extends State<EditorScreen> {
           for (int xx = minX; xx <= maxX; xx++) {
             currentStrokeCells.add(grid[yy][xx]);
             grid[yy][xx].type = activeBrush;
+            if (activeBrush == 0) {
+              grid[yy][xx].name = null;
+              grid[yy][xx].connectsToMap = null;
+              grid[yy][xx].connectsToNode = null;
+              grid[yy][xx].wallTop = false;
+              grid[yy][xx].wallBottom = false;
+              grid[yy][xx].wallLeft = false;
+              grid[yy][xx].wallRight = false;
+              if (yy > 0) grid[yy-1][xx].wallBottom = false;
+              if (yy < AppConfig.rows - 1) grid[yy+1][xx].wallTop = false;
+              if (xx > 0) grid[yy][xx-1].wallRight = false;
+              if (xx < AppConfig.cols - 1) grid[yy][xx+1].wallLeft = false;
+            }
           }
         }
         setState(() { dragStartX = null; dragStartY = null; dragCurrentX = null; dragCurrentY = null; });
