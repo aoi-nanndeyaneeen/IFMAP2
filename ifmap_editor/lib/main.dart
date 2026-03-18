@@ -38,6 +38,42 @@ class _EditorScreenState extends State<EditorScreen> {
   int currentBrush = 1;
   Uint8List? bgImageBytes;
   int? dragStartX, dragStartY, dragCurrentX, dragCurrentY;
+  final TransformationController _transformController = TransformationController();
+
+  List<List<List<MapCell>>> undoHistory = [];
+  List<List<List<MapCell>>> redoHistory = [];
+
+  List<List<MapCell>> _cloneGrid(List<List<MapCell>> source) {
+    return source.map((r) => r.map((c) => MapCell(x: c.x, y: c.y, type: c.type, name: c.name)).toList()).toList();
+  }
+
+  void _saveHistory() {
+    undoHistory.add(_cloneGrid(grid));
+    if (undoHistory.length > 50) undoHistory.removeAt(0);
+    redoHistory.clear();
+  }
+
+  void _undo() {
+    if (undoHistory.isNotEmpty) {
+      redoHistory.add(_cloneGrid(grid));
+      setState(() => grid = undoHistory.removeLast());
+    }
+  }
+
+  void _redo() {
+    if (redoHistory.isNotEmpty) {
+      undoHistory.add(_cloneGrid(grid));
+      setState(() => grid = redoHistory.removeLast());
+    }
+  }
+
+  void _zoomIn() {
+    _transformController.value = _transformController.value.clone()..scale(1.2);
+  }
+
+  void _zoomOut() {
+    _transformController.value = _transformController.value.clone()..scale(1/1.2);
+  }
 
   @override
   void initState() {
@@ -74,6 +110,7 @@ class _EditorScreenState extends State<EditorScreen> {
           ElevatedButton(
             onPressed: () {
               if (tempName.isNotEmpty) {
+                _saveHistory();
                 setState(() { cell.type = brushType; cell.name = tempName; });
               }
               Navigator.pop(context);
@@ -103,6 +140,38 @@ class _EditorScreenState extends State<EditorScreen> {
         actions: [
           ElevatedButton.icon(onPressed: _pickImage, icon: const Icon(Icons.map), label: const Text('見取り図を読込')),
           const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.undo),
+            color: Colors.white,
+            onPressed: undoHistory.isNotEmpty ? _undo : null,
+            tooltip: '元に戻す',
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo),
+            color: Colors.white,
+            onPressed: redoHistory.isNotEmpty ? _redo : null,
+            tooltip: 'やり直し',
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_out),
+            color: Colors.white,
+            onPressed: _zoomOut,
+            tooltip: '縮小',
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_in),
+            color: Colors.white,
+            onPressed: _zoomIn,
+            tooltip: '拡大',
+          ),
+          const Center(
+            child: Text(
+              '※手のひらツールで移動\n※スクロールで拡大縮小',
+              style: TextStyle(fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(width: 16),
           ElevatedButton.icon(
             onPressed: () => JsonExporter.export(context, grid),
             icon: const Icon(Icons.download), label: const Text('JSON出力'),
@@ -118,51 +187,56 @@ class _EditorScreenState extends State<EditorScreen> {
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: AspectRatio(
-                  aspectRatio: AppConfig.cols / AppConfig.rows,
-                  child: CanvasArea(
-                    grid: grid,
-                    currentBrush: currentBrush,
-                    bgImageBytes: bgImageBytes,
-                    dragStartX: dragStartX, dragStartY: dragStartY,
-                    dragCurrentX: dragCurrentX, dragCurrentY: dragCurrentY,
-                    onPointerDown: (y, x) {
-                      if (currentBrush == 3 || currentBrush == 4) {
-                        _showNameDialog(grid[y][x], currentBrush);
-                      } else if (currentBrush == 2 || currentBrush == -1) {
-                        setState(() { dragStartX = x; dragStartY = y; dragCurrentX = x; dragCurrentY = y; });
-                      } else {
-                        setState(() => _paintCellSingle(y, x, currentBrush));
-                      }
-                    },
-                    onPointerMove: (y, x) {
-                      if (currentBrush == 2 || currentBrush == -1) {
-                        setState(() { dragCurrentX = x; dragCurrentY = y; });
-                      } else if (currentBrush == 1 || currentBrush == 0) {
-                        setState(() => _paintCellSingle(y, x, currentBrush));
-                      }
-                    },
-                    onPointerUp: () {
-                      if (currentBrush == 2 || currentBrush == -1) {
-                        if (dragStartX != null && dragStartY != null && dragCurrentX != null && dragCurrentY != null) {
-                          int minX = dragStartX! < dragCurrentX! ? dragStartX! : dragCurrentX!;
-                          int maxX = dragStartX! > dragCurrentX! ? dragStartX! : dragCurrentX!;
-                          int minY = dragStartY! < dragCurrentY! ? dragStartY! : dragCurrentY!;
-                          int maxY = dragStartY! > dragCurrentY! ? dragStartY! : dragCurrentY!;
-                          int brush = currentBrush == 2 ? 1 : 0;
-                          setState(() {
-                            for (int y = minY; y <= maxY; y++) {
-                              // ↓ カッコ {} を追加して青い線を消しました！
-                              for (int x = minX; x <= maxX; x++) {
-                                _paintCellSingle(y, x, brush);
-                              }
+                child: CanvasArea(
+                  grid: grid,
+                  currentBrush: currentBrush,
+                  bgImageBytes: bgImageBytes,
+                  transformController: _transformController, // コントローラーを渡す
+                  dragStartX: dragStartX, dragStartY: dragStartY,
+                  dragCurrentX: dragCurrentX, dragCurrentY: dragCurrentY,
+                  onPointerDown: (y, x, buttons) {
+                    if (buttons == 2) {
+                      _saveHistory();
+                      setState(() => _paintCellSingle(y, x, 0)); // 右クリックは消しゴム
+                    } else if (currentBrush == 3 || currentBrush == 4) {
+                      _showNameDialog(grid[y][x], currentBrush);
+                    } else if (currentBrush == 2 || currentBrush == -1) {
+                      setState(() { dragStartX = x; dragStartY = y; dragCurrentX = x; dragCurrentY = y; });
+                    } else {
+                      _saveHistory();
+                      setState(() => _paintCellSingle(y, x, currentBrush));
+                    }
+                  },
+                  onPointerMove: (y, x, buttons) {
+                    if (buttons == 2) {
+                      setState(() => _paintCellSingle(y, x, 0));
+                    } else if (currentBrush == 2 || currentBrush == -1) {
+                      setState(() { dragCurrentX = x; dragCurrentY = y; });
+                    } else if (currentBrush == 1 || currentBrush == 0) {
+                      setState(() => _paintCellSingle(y, x, currentBrush));
+                    }
+                  },
+                  onPointerUp: () {
+                    if (currentBrush == 2 || currentBrush == -1) {
+                      if (dragStartX != null && dragStartY != null && dragCurrentX != null && dragCurrentY != null) {
+                        _saveHistory();
+                        int minX = dragStartX! < dragCurrentX! ? dragStartX! : dragCurrentX!;
+                        int maxX = dragStartX! > dragCurrentX! ? dragStartX! : dragCurrentX!;
+                        int minY = dragStartY! < dragCurrentY! ? dragStartY! : dragCurrentY!;
+                        int maxY = dragStartY! > dragCurrentY! ? dragStartY! : dragCurrentY!;
+                        int brush = currentBrush == 2 ? 1 : 0;
+                        setState(() {
+                          for (int y = minY; y <= maxY; y++) {
+                            // ↓ カッコ {} を追加して青い線を消しました！
+                            for (int x = minX; x <= maxX; x++) {
+                              _paintCellSingle(y, x, brush);
                             }
-                            dragStartX = null; dragStartY = null; dragCurrentX = null; dragCurrentY = null;
-                          });
-                        }
+                          }
+                          dragStartX = null; dragStartY = null; dragCurrentX = null; dragCurrentY = null;
+                        });
                       }
-                    },
-                  ),
+                    }
+                  },
                 ),
               ),
             ),

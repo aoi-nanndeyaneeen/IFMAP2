@@ -28,6 +28,8 @@ class ToolPalette extends StatelessWidget {
           _buildBrushButton(3, '★ 目的地・QR (黄)', Colors.yellow.shade700, Icons.location_on),
           _buildBrushButton(4, '▲ 階段 (緑)', Colors.green, Icons.stairs), // 階段追加！
           const Divider(),
+          _buildBrushButton(5, '手のひら (移動・拡大縮小)', Colors.orange, Icons.pan_tool),
+          const Divider(),
           _buildBrushButton(0, '消しゴム (なぞり)', Colors.white, Icons.edit),
           _buildBrushButton(-1, '消しゴム (長方形)', Colors.grey[400]!, Icons.crop_square),
         ],
