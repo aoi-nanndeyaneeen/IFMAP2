@@ -50,6 +50,8 @@ class _EditorScreenState extends State<EditorScreen> {
   Timer? _edgePanTimer;
   Offset? _currentGlobalPointer;
   int _currentButtons = 0;
+  
+  String _currentFileName = 'map_data.json';
 
   List<List<List<MapCell>>> undoHistory = [];
   List<List<List<MapCell>>> redoHistory = [];
@@ -140,6 +142,10 @@ class _EditorScreenState extends State<EditorScreen> {
           final List cellsData = editorData['cells'];
 
           setState(() {
+            // "map_data (1).json" のようなブラウザ付与の連番を削除して本来の名前に戻す
+            String importedName = result.files.single.name;
+            importedName = importedName.replaceAll(RegExp(r'\s*\(\d+\)'), '');
+            _currentFileName = importedName;
             bgImageBytes = bgBase64 != null ? base64Decode(bgBase64) : null;
             
             // 全体を初期化する
@@ -164,6 +170,10 @@ class _EditorScreenState extends State<EditorScreen> {
                   wallBottom: cData['wallBottom'] == true,
                   wallLeft: cData['wallLeft'] == true,
                   wallRight: cData['wallRight'] == true,
+                  doorTop: cData['doorTop'] == true,
+                  doorBottom: cData['doorBottom'] == true,
+                  doorLeft: cData['doorLeft'] == true,
+                  doorRight: cData['doorRight'] == true,
                 );
               }
             }
@@ -180,7 +190,7 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
-  Future<bool> _showNameDialog(int type) async {
+  Future<bool> _showNameDialog(int type, {String? oldName}) async {
     final ctrl = TextEditingController(text: _pendingName ?? '');
     final labelType = type == 3 ? '部屋' : type == 4 ? '階段' : '';
     bool confirmed = false;
@@ -195,6 +205,10 @@ class _EditorScreenState extends State<EditorScreen> {
           decoration: InputDecoration(hintText: type == 3 ? '例: 会議室101' : '例: 南階段'),
           onSubmitted: (v) {
             if (v.isNotEmpty) {
+              if (v != oldName && _isNameDuplicate(v, type)) {
+                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: 「$v」は既に存在します')));
+                 return;
+              }
               confirmed = true;
               Navigator.pop(context);
             }
@@ -205,7 +219,7 @@ class _EditorScreenState extends State<EditorScreen> {
           ElevatedButton(
             onPressed: () {
               if (ctrl.text.isNotEmpty) {
-                if (_isNameDuplicate(ctrl.text, type)) {
+                if (ctrl.text != oldName && _isNameDuplicate(ctrl.text, type)) {
                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: 「${ctrl.text}」は既に存在します')));
                    return;
                 }
@@ -225,7 +239,7 @@ class _EditorScreenState extends State<EditorScreen> {
     return confirmed && ctrl.text.isNotEmpty;
   }
 
-  Future<bool> _showConnectorDialog() async {
+  Future<bool> _showConnectorDialog({String? oldName}) async {
     final nameCtrl  = TextEditingController(text: _pendingName ?? '');
     final mapCtrl   = TextEditingController(text: _pendingConnectsToMap  ?? '');
     final nodeCtrl  = TextEditingController(text: _pendingConnectsToNode ?? '');
@@ -248,7 +262,7 @@ class _EditorScreenState extends State<EditorScreen> {
             decoration: const InputDecoration(labelText: '接続先ノードID', hintText: '例: connector_from_1f'),
             onSubmitted: (_) {
               if (nameCtrl.text.isNotEmpty) {
-                if (_isNameDuplicate(nameCtrl.text, 5)) {
+                if (nameCtrl.text != oldName && _isNameDuplicate(nameCtrl.text, 5)) {
                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('エラー: すでに同じ名前が存在します')));
                    return;
                 }
@@ -261,7 +275,7 @@ class _EditorScreenState extends State<EditorScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
           ElevatedButton(onPressed: () {
             if (nameCtrl.text.isNotEmpty) {
-                if (_isNameDuplicate(nameCtrl.text, 5)) {
+                if (nameCtrl.text != oldName && _isNameDuplicate(nameCtrl.text, 5)) {
                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('エラー: すでに同じ名前が存在します')));
                    return;
                 }
@@ -282,9 +296,9 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   // 指を離すまで同じ壁を何度も上書きしないためのセット
-  final Set<String> _currentStrokeWalls = {};
+  final Set<String> _currentStrokeBoundaries = {};
 
-  void _applyWall(int y, int x, Offset localPos, double cellSize, bool erase) {
+  void _applyBoundary(int y, int x, Offset localPos, double cellSize, bool erase, bool isDoor) {
     double relX = localPos.dx % cellSize;
     double relY = localPos.dy % cellSize;
     
@@ -300,34 +314,50 @@ class _EditorScreenState extends State<EditorScreen> {
     else if (minDist == distBottom) direction = 'bottom';
     else if (minDist == distLeft) direction = 'left';
 
-    String wallId = '${y}_${x}_$direction';
-    if (_currentStrokeWalls.contains(wallId)) return;
-    _currentStrokeWalls.add(wallId);
+    String boundId = '${y}_${x}_$direction';
+    if (_currentStrokeBoundaries.contains(boundId)) return;
+    _currentStrokeBoundaries.add(boundId);
     
     setState(() {
       if (direction == 'top') {
-        grid[y][x].wallTop = !erase;
-        if (y > 0) grid[y-1][x].wallBottom = !erase;
+        if (isDoor) { grid[y][x].doorTop = !erase; grid[y][x].wallTop = false; }
+        else { grid[y][x].wallTop = !erase; grid[y][x].doorTop = false; }
+        if (y > 0) {
+           if (isDoor) { grid[y-1][x].doorBottom = !erase; grid[y-1][x].wallBottom = false; }
+           else { grid[y-1][x].wallBottom = !erase; grid[y-1][x].doorBottom = false; }
+        }
       } else if (direction == 'bottom') {
-        grid[y][x].wallBottom = !erase;
-        if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = !erase;
+        if (isDoor) { grid[y][x].doorBottom = !erase; grid[y][x].wallBottom = false; }
+        else { grid[y][x].wallBottom = !erase; grid[y][x].doorBottom = false; }
+        if (y < AppConfig.rows - 1) {
+           if (isDoor) { grid[y+1][x].doorTop = !erase; grid[y+1][x].wallTop = false; }
+           else { grid[y+1][x].wallTop = !erase; grid[y+1][x].doorTop = false; }
+        }
       } else if (direction == 'left') {
-        grid[y][x].wallLeft = !erase;
-        if (x > 0) grid[y][x-1].wallRight = !erase;
+        if (isDoor) { grid[y][x].doorLeft = !erase; grid[y][x].wallLeft = false; }
+        else { grid[y][x].wallLeft = !erase; grid[y][x].doorLeft = false; }
+        if (x > 0) {
+           if (isDoor) { grid[y][x-1].doorRight = !erase; grid[y][x-1].wallRight = false; }
+           else { grid[y][x-1].wallRight = !erase; grid[y][x-1].doorRight = false; }
+        }
       } else if (direction == 'right') {
-        grid[y][x].wallRight = !erase;
-        if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = !erase;
+        if (isDoor) { grid[y][x].doorRight = !erase; grid[y][x].wallRight = false; }
+        else { grid[y][x].wallRight = !erase; grid[y][x].doorRight = false; }
+        if (x < AppConfig.cols - 1) {
+           if (isDoor) { grid[y][x+1].doorLeft = !erase; grid[y][x+1].wallLeft = false; }
+           else { grid[y][x+1].wallLeft = !erase; grid[y][x+1].doorLeft = false; }
+        }
       }
     });
   }
 
   void _applyPointerMove(int y, int x, int buttons, Offset localPos, double cellSize) {
     int activeBrush = brushType;
-    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
+    if (isRightClickEraser && activeBrush != 7 && activeBrush != 8) activeBrush = 0;
     if (activeBrush == 6) return;
 
-    if (activeBrush == 7) {
-      _applyWall(y, x, localPos, cellSize, isRightClickEraser);
+    if (activeBrush == 7 || activeBrush == 8) {
+      _applyBoundary(y, x, localPos, cellSize, isRightClickEraser, activeBrush == 8);
       return;
     }
 
@@ -343,10 +373,14 @@ class _EditorScreenState extends State<EditorScreen> {
           grid[y][x].wallBottom = false;
           grid[y][x].wallLeft = false;
           grid[y][x].wallRight = false;
-          if (y > 0) grid[y-1][x].wallBottom = false;
-          if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = false;
-          if (x > 0) grid[y][x-1].wallRight = false;
-          if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = false;
+          grid[y][x].doorTop = false;
+          grid[y][x].doorBottom = false;
+          grid[y][x].doorLeft = false;
+          grid[y][x].doorRight = false;
+          if (y > 0) { grid[y-1][x].wallBottom = false; grid[y-1][x].doorBottom = false; }
+          if (y < AppConfig.rows - 1) { grid[y+1][x].wallTop = false; grid[y+1][x].doorTop = false; }
+          if (x > 0) { grid[y][x-1].wallRight = false; grid[y][x-1].doorRight = false; }
+          if (x < AppConfig.cols - 1) { grid[y][x+1].wallLeft = false; grid[y][x+1].doorLeft = false; }
         }
       });
     } else {
@@ -400,16 +434,53 @@ class _EditorScreenState extends State<EditorScreen> {
     _edgePanTimer = Timer.periodic(const Duration(milliseconds: 16), (_) => _checkEdgePan());
 
     int activeBrush = brushType;
-    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
+    if (isRightClickEraser && activeBrush != 7 && activeBrush != 8) activeBrush = 0;
     if (activeBrush == 6) return;
 
     _saveHistory();
     currentStrokeCells.clear();
-    _currentStrokeWalls.clear();
+    _currentStrokeBoundaries.clear();
 
-    if (activeBrush == 7) {
-      _applyWall(y, x, localPos, cellSize, isRightClickEraser);
+    if (activeBrush == 7 || activeBrush == 8) {
+      _applyBoundary(y, x, localPos, cellSize, isRightClickEraser, activeBrush == 8);
       return;
+    }
+
+    if (activeBrush == 9) {
+       final clickedCell = grid[y][x];
+       if (clickedCell.name != null && (clickedCell.type == 3 || clickedCell.type == 4 || clickedCell.type == 5)) {
+          String oldName = clickedCell.name!;
+          int targetType = clickedCell.type;
+          
+          _pendingName = oldName;
+          _pendingConnectsToMap = clickedCell.connectsToMap;
+          _pendingConnectsToNode = clickedCell.connectsToNode;
+          
+          bool ok = false;
+          if (targetType == 5) ok = await _showConnectorDialog(oldName: oldName);
+          else ok = await _showNameDialog(targetType, oldName: oldName);
+          
+          if (ok && _pendingName != null && _pendingName!.isNotEmpty) {
+             _saveHistory(); // save history before applying batch rename
+             setState(() {
+                for (int yy = 0; yy < AppConfig.rows; yy++) {
+                   for (int xx = 0; xx < AppConfig.cols; xx++) {
+                      if (grid[yy][xx].type == targetType && grid[yy][xx].name == oldName) {
+                         grid[yy][xx].name = _pendingName;
+                         if (targetType == 5) {
+                            grid[yy][xx].connectsToMap = _pendingConnectsToMap;
+                            grid[yy][xx].connectsToNode = _pendingConnectsToNode;
+                         }
+                      }
+                   }
+                }
+             });
+          }
+          _pendingName = null;
+          _pendingConnectsToMap = null;
+          _pendingConnectsToNode = null;
+       }
+       return;
     }
 
     if (activeBrush == 3 || activeBrush == 4 || activeBrush == 5) {
@@ -433,10 +504,14 @@ class _EditorScreenState extends State<EditorScreen> {
           grid[y][x].wallBottom = false;
           grid[y][x].wallLeft = false;
           grid[y][x].wallRight = false;
-          if (y > 0) grid[y-1][x].wallBottom = false;
-          if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = false;
-          if (x > 0) grid[y][x-1].wallRight = false;
-          if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = false;
+          grid[y][x].doorTop = false;
+          grid[y][x].doorBottom = false;
+          grid[y][x].doorLeft = false;
+          grid[y][x].doorRight = false;
+          if (y > 0) { grid[y-1][x].wallBottom = false; grid[y-1][x].doorBottom = false; }
+          if (y < AppConfig.rows - 1) { grid[y+1][x].wallTop = false; grid[y+1][x].doorTop = false; }
+          if (x > 0) { grid[y][x-1].wallRight = false; grid[y][x-1].doorRight = false; }
+          if (x < AppConfig.cols - 1) { grid[y][x+1].wallLeft = false; grid[y][x+1].doorLeft = false; }
         }
       });
     } else {
@@ -456,8 +531,8 @@ class _EditorScreenState extends State<EditorScreen> {
     _currentGlobalPointer = null;
 
     int activeBrush = brushType;
-    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
-    if (activeBrush == 6 || activeBrush == 7) return;
+    if (isRightClickEraser && activeBrush != 7 && activeBrush != 8) activeBrush = 0;
+    if (activeBrush == 6 || activeBrush == 7 || activeBrush == 8) return;
 
     if (!isRightClickEraser && drawMode == 'rect') {
       if (dragStartX != null && dragStartY != null && dragCurrentX != null && dragCurrentY != null) {
@@ -477,10 +552,14 @@ class _EditorScreenState extends State<EditorScreen> {
               grid[yy][xx].wallBottom = false;
               grid[yy][xx].wallLeft = false;
               grid[yy][xx].wallRight = false;
-              if (yy > 0) grid[yy-1][xx].wallBottom = false;
-              if (yy < AppConfig.rows - 1) grid[yy+1][xx].wallTop = false;
-              if (xx > 0) grid[yy][xx-1].wallRight = false;
-              if (xx < AppConfig.cols - 1) grid[yy][xx+1].wallLeft = false;
+              grid[yy][xx].doorTop = false;
+              grid[yy][xx].doorBottom = false;
+              grid[yy][xx].doorLeft = false;
+              grid[yy][xx].doorRight = false;
+              if (yy > 0) { grid[yy-1][xx].wallBottom = false; grid[yy-1][xx].doorBottom = false; }
+              if (yy < AppConfig.rows - 1) { grid[yy+1][xx].wallTop = false; grid[yy+1][xx].doorTop = false; }
+              if (xx > 0) { grid[yy][xx-1].wallRight = false; grid[yy][xx-1].doorRight = false; }
+              if (xx < AppConfig.cols - 1) { grid[yy][xx+1].wallLeft = false; grid[yy][xx+1].doorLeft = false; }
             }
           }
         }
@@ -589,7 +668,6 @@ class _EditorScreenState extends State<EditorScreen> {
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(width: 16),
           ElevatedButton.icon(
             onPressed: _importJson,
             icon: const Icon(Icons.upload_file),
@@ -597,10 +675,57 @@ class _EditorScreenState extends State<EditorScreen> {
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
-            onPressed: () => JsonExporter.export(context, grid, bgImageBytes),
-            icon: const Icon(Icons.download),
-            label: const Text('JSON出力'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            onPressed: () => JsonExporter.export(context, grid, bgImageBytes, _currentFileName),
+            icon: const Icon(Icons.save),
+            label: Text('上書き保存\n($_currentFileName)', textAlign: TextAlign.center, style: const TextStyle(fontSize: 10)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final nameCtrl = TextEditingController();
+              final floorCtrl = TextEditingController();
+              String base = _currentFileName.replaceAll('.json', '');
+              if (base.contains('_')) {
+                 int idx = base.lastIndexOf('_');
+                 nameCtrl.text = base.substring(0, idx);
+                 floorCtrl.text = base.substring(idx + 1);
+              } else {
+                 nameCtrl.text = base;
+              }
+              
+              final newName = await showDialog<String>(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text('名前を設定して保存'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                        TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '建物・キャンパス名 (例: 本館)')),
+                        TextField(controller: floorCtrl, decoration: const InputDecoration(labelText: '階数 (必須) (例: 1F, 2階)')),
+                    ]
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(c), child: const Text('キャンセル')),
+                    ElevatedButton(onPressed: () {
+                       if (floorCtrl.text.isEmpty) {
+                          ScaffoldMessenger.of(c).showSnackBar(const SnackBar(content: Text('エラー: 階数を入力してください')));
+                          return;
+                       }
+                       String generatedName = '${nameCtrl.text}_${floorCtrl.text}.json';
+                       Navigator.pop(c, generatedName);
+                    }, child: const Text('保存')),
+                  ],
+                ),
+              );
+              if (newName != null && newName.isNotEmpty) {
+                setState(() => _currentFileName = newName);
+                if (mounted) JsonExporter.export(context, grid, bgImageBytes, _currentFileName);
+              }
+            },
+            icon: const Icon(Icons.save_as),
+            label: const Text('別名保存', style: TextStyle(fontSize: 11)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
           ),
           const SizedBox(width: 16),
         ],

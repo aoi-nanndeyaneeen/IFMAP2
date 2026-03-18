@@ -8,8 +8,22 @@ import 'config.dart';
 import 'map_cell.dart';
 
 class JsonExporter {
-  static void export(BuildContext context, List<List<MapCell>> grid, Uint8List? bgImageBytes) {
-    if (!context.mounted) return;
+  static void export(
+    BuildContext context,
+    List<List<MapCell>> grid,
+    Uint8List? bgImageBytes,
+    String fileName,
+  ) {
+    try {
+      if (grid.isEmpty || grid[0].isEmpty) {
+        return;
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラーが発生しました: $e')));
+      }
+      return;
+    }
     
     // UIをブロックしないように、少し処理を遅延させます
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('JSONの生成とダウンロードを準備中です...')));
@@ -43,6 +57,7 @@ class JsonExporter {
             }
           }
           
+          // Original node data generation
           nodes[id] = {
             'x': x * AppConfig.pxPerCell,
             'y': y * AppConfig.pxPerCell,
@@ -51,13 +66,17 @@ class JsonExporter {
             if (cell.type == 5) 'isConnector': true,
             if (cell.type == 5 && cell.connectsToMap  != null) 'connectsToMap':  cell.connectsToMap,
             if (cell.type == 5 && cell.connectsToNode != null) 'connectsToNode': cell.connectsToNode,
+            if (cell.doorTop) 'doorTop': true,
+            if (cell.doorBottom) 'doorBottom': true,
+            if (cell.doorLeft) 'doorLeft': true,
+            if (cell.doorRight) 'doorRight': true,
           };
         }
       }
 
       final editorData = {
         'bgImageBase64': bgImageBytes != null ? base64Encode(bgImageBytes!) : null,
-        'cells': grid.expand((row) => row).where((c) => c.type != 0 || c.wallTop || c.wallBottom || c.wallLeft || c.wallRight).map((c) => {
+        'cells': grid.expand((row) => row).where((c) => c.type != 0 || c.name != null || c.wallTop || c.wallBottom || c.wallLeft || c.wallRight || c.doorTop || c.doorBottom || c.doorLeft || c.doorRight).map((c) => {
           'x': c.x, 'y': c.y, 'type': c.type,
           if (c.name != null) 'name': c.name,
           if (c.connectsToMap != null) 'connectsToMap': c.connectsToMap,
@@ -66,6 +85,10 @@ class JsonExporter {
           if (c.wallBottom) 'wallBottom': true,
           if (c.wallLeft) 'wallLeft': true,
           if (c.wallRight) 'wallRight': true,
+          if (c.doorTop) 'doorTop': true,
+          if (c.doorBottom) 'doorBottom': true,
+          if (c.doorLeft) 'doorLeft': true,
+          if (c.doorRight) 'doorRight': true,
         }).toList(),
       };
       nodes['_editorData'] = editorData;
@@ -75,14 +98,13 @@ class JsonExporter {
       
       // Webブラウザでのファイルダウンロード処理
       final bytes = utf8.encode(json);
-      final blob = html.Blob([bytes]);
+      final blob = html.Blob([json], 'application/json');
       final url = html.Url.createObjectUrlFromBlob(blob);
       final anchor = html.AnchorElement(href: url)
-        ..style.display = 'none'
-        ..download = 'map_data.json';
+        ..setAttribute('download', fileName)
+        ..click();
         
       html.document.body?.children.add(anchor);
-      anchor.click();
       anchor.remove();
       html.Url.revokeObjectUrl(url);
 

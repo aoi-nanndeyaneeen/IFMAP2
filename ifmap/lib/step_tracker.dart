@@ -8,9 +8,10 @@ import 'config.dart';
 class GateInfo {
   final String id;
   final bool isEnter;
-  const GateInfo(this.id, {required this.isEnter});
-  String get key   => isEnter ? '${id}_in' : '${id}_out';
-  String get label => isEnter ? '「$id」に入りました' : '「$id」を出ました';
+  final bool isDoor;
+  const GateInfo(this.id, {this.isEnter = true, this.isDoor = false});
+  String get key   => isDoor ? '${id}_door' : (isEnter ? '${id}_in' : '${id}_out');
+  String get label => isDoor ? '扉を通る' : (isEnter ? '「$id」に入りました' : '「$id」を出ました');
 }
 
 class _Gate {
@@ -70,27 +71,55 @@ class StepTracker {
     }, onError: (_) {});
   }
 
-  /// ルート確定後に呼ぶ。経路セグメント距離でゲートを設定する。
-  /// startId: 出発ノード（名前付きなら最初に「出る」ゲートを追加）
-  void setGates(List<String> waypointIds, String? startId) {
+  /// ルート確定後に呼ぶ。経路のトポロジーに基づいて正確な境界(部屋の出入り、扉)でゲートを設定する。
+  void setGates() {
     _gates = [];
-    const r = AppConfig.waypointRadiusPx;
 
-    if (startId != null && !startId.startsWith('node_')) {
-      _tryAdd(GateInfo(startId, isEnter: false), r);
-    }
+    for (int i = 0; i < _path.length - 1; i++) {
+        String idA = _path[i];
+        String idB = _path[i+1];
+        var nodeA = _nodes[idA];
+        var nodeB = _nodes[idB];
+        if (nodeA == null || nodeB == null) continue;
 
-    // ★ セグメント(線分)への最短距離でゲート位置を決定
-    // ノードがまばらな廊下でも、沿道の部屋を正確に検出できる
-    final sorted = waypointIds
-        .map((id) => MapEntry(id, _closestCumDistOnSegments(id)))
-        .where((e) => e.value >= 0)
-        .toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+        double halfwayPx = (_cumDist[i] + _cumDist[i+1]) / 2.0;
 
-    for (final e in sorted) {
-      _tryAdd(GateInfo(e.key, isEnter: true),  e.value - r); // 部屋の手前で「入る」
-      _tryAdd(GateInfo(e.key, isEnter: false), e.value + r); // 部屋の奥で「出る」
+        int typeA = nodeA['type'] ?? 1;
+        int typeB = nodeB['type'] ?? 1;
+        String? nameA = nodeA['name'];
+        String? nameB = nodeB['name'];
+
+        // 部屋の出入り判定
+        if (typeA == 3 && typeB == 1) { 
+            if (nameA != null) _tryAdd(GateInfo(nameA, isEnter: false), halfwayPx);
+        } else if (typeA == 1 && typeB == 3) {
+            if (nameB != null) _tryAdd(GateInfo(nameB, isEnter: true), halfwayPx);
+        } else if (typeA == 3 && typeB == 3 && nameA != nameB) {
+            if (nameA != null) _tryAdd(GateInfo(nameA, isEnter: false), halfwayPx - 0.1);
+            if (nameB != null) _tryAdd(GateInfo(nameB, isEnter: true), halfwayPx + 0.1);
+        }
+
+        // 扉の通過判定 (通路と通路の間、もしくは部屋と通路の境界に設置された扉)
+        double xA = (nodeA['x'] as num).toDouble();
+        double yA = (nodeA['y'] as num).toDouble();
+        double xB = (nodeB['x'] as num).toDouble();
+        double yB = (nodeB['y'] as num).toDouble();
+
+        bool hasDoor = false;
+        if (yB == yA && xB > xA) { // 右へ移動
+            if (nodeA['doorRight'] == true || nodeB['doorLeft'] == true) hasDoor = true;
+        } else if (yB == yA && xB < xA) { // 左へ移動
+            if (nodeA['doorLeft'] == true || nodeB['doorRight'] == true) hasDoor = true;
+        } else if (xB == xA && yB > yA) { // 下へ移動
+            if (nodeA['doorBottom'] == true || nodeB['doorTop'] == true) hasDoor = true;
+        } else if (xB == xA && yB < yA) { // 上へ移動
+            if (nodeA['doorTop'] == true || nodeB['doorBottom'] == true) hasDoor = true;
+        }
+
+        // 通路の間にある扉を通る時だけ「扉を通る」を独立して出す（部屋に入りながら扉を通る場合は、部屋に入るボタンを優先する）
+        if (typeA == 1 && typeB == 1 && hasDoor) {
+            _tryAdd(GateInfo('扉', isEnter: true, isDoor: true), halfwayPx);
+        }
     }
 
     _gateIdx = 0;
@@ -120,32 +149,7 @@ class StepTracker {
     if (clamped > prevPx) _gates.add(_Gate(info, clamped));
   }
 
-  /// 経路「セグメント（線分）」への最短距離でゲート位置を特定。
-  /// 線分上の最近傍点の累積距離を返す。見つからなければ -1。
-  double _closestCumDistOnSegments(String wpId) {
-    if (!_nodes.containsKey(wpId)) return -1;
-    final wx = (_nodes[wpId]['x'] as num).toDouble();
-    final wy = (_nodes[wpId]['y'] as num).toDouble();
-    double minD = double.infinity, bestPx = -1;
 
-    for (int i = 0; i < _path.length - 1; i++) {
-      if (!_nodes.containsKey(_path[i]) || !_nodes.containsKey(_path[i + 1])) continue;
-      final x1 = (_nodes[_path[i]    ]['x'] as num).toDouble();
-      final y1 = (_nodes[_path[i]    ]['y'] as num).toDouble();
-      final x2 = (_nodes[_path[i + 1]]['x'] as num).toDouble();
-      final y2 = (_nodes[_path[i + 1]]['y'] as num).toDouble();
-      final dx = x2 - x1, dy = y2 - y1;
-      final lenSq = dx * dx + dy * dy;
-      final t  = lenSq == 0 ? 0.0 : ((wx - x1) * dx + (wy - y1) * dy) / lenSq;
-      final tc = t.clamp(0.0, 1.0);
-      final d  = sqrt(pow(wx - (x1 + tc * dx), 2) + pow(wy - (y1 + tc * dy), 2));
-      if (d < minD) {
-        minD   = d;
-        bestPx = _cumDist[i] + tc * (_cumDist[i + 1] - _cumDist[i]);
-      }
-    }
-    return bestPx;
-  }
 
   void _buildCumDist() {
     _cumDist = [0.0];

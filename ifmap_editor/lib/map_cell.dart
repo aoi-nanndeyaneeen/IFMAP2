@@ -14,9 +14,15 @@ class MapCell {
   bool wallBottom;
   bool wallLeft;
 
+  bool doorTop;
+  bool doorRight;
+  bool doorBottom;
+  bool doorLeft;
+
   MapCell({required this.x, required this.y, this.type = 0,
            this.name, this.connectsToMap, this.connectsToNode,
-           this.wallTop = false, this.wallRight = false, this.wallBottom = false, this.wallLeft = false});
+           this.wallTop = false, this.wallRight = false, this.wallBottom = false, this.wallLeft = false,
+           this.doorTop = false, this.doorRight = false, this.doorBottom = false, this.doorLeft = false});
 
   Color get color => switch (type) {
     1 => Colors.blue.withValues(alpha: 0.45),

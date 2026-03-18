@@ -49,8 +49,10 @@ class ToolPalette extends StatelessWidget {
         const Divider(),
         _typeBtn(0, '消しゴム',     Colors.grey.shade400,    Icons.delete_outline),
         const Divider(),
-        _typeBtn(6, '手のひら',     Colors.orange,           Icons.pan_tool),
-        _typeBtn(7, '壁 (境界)',      Colors.red.shade900,     Icons.border_outer),
+        _typeBtn(7, '壁 (境界)',    Colors.red.shade900,     Icons.border_outer),
+        _typeBtn(8, '扉 (境界)',    Colors.orange.shade800,  Icons.door_front_door),
+        const Divider(),
+        _typeBtn(9, '名前の変更',   Colors.teal.shade600,    Icons.edit_note),
       ]),
     );
   }

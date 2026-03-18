@@ -78,8 +78,24 @@ class _MapScreenState extends State<MapScreen> {
     return null;
   }
 
-  String? _stairsIn(String label) {
-    for (final e in (_maps[label] ?? {}).entries) {
+  String? _findMatchingStairs(String fromLabel, String toLabel) {
+    final fromStairs = <String>{};
+    _maps[fromLabel]?.forEach((k, v) {
+      if (v['isStairs'] == true && v['name'] != null) fromStairs.add(v['name']);
+    });
+
+    String? matchingStairsName;
+    _maps[toLabel]?.forEach((k, v) {
+      if (v['isStairs'] == true && v['name'] != null && fromStairs.contains(v['name'])) matchingStairsName = v['name'];
+    });
+
+    if (matchingStairsName != null) {
+       for (final e in (_maps[fromLabel] ?? {}).entries) {
+         if (e.value['isStairs'] == true && e.value['name'] == matchingStairsName) return e.key;
+       }
+    }
+
+    for (final e in (_maps[fromLabel] ?? {}).entries) {
       if (e.value['isStairs'] == true || e.key.toLowerCase() == 'stairs') return e.key;
     }
     return null;
@@ -102,32 +118,6 @@ class _MapScreenState extends State<MapScreen> {
     return d.toSet().toList();
   }
 
-  /// 経路セグメントへの最短距離で近傍の名前付きノードを検出
-  List<String> _nearbyWaypoints(List<String> path) {
-    const r = AppConfig.waypointRadiusPx;
-    final res = <String>{};
-    for (final e in _cn.entries) {
-      final id = e.key;
-      if (id.startsWith('node_') ||
-          e.value['isStairs'] == true ||
-          e.value['isConnector'] == true ||
-          id == startNode ||
-          id == goalNode) {
-        continue;
-      }
-      final cx = (e.value['x'] as num).toDouble(), cy = (e.value['y'] as num).toDouble();
-      for (int i = 0; i < path.length - 1; i++) {
-        if (!_cn.containsKey(path[i]) || !_cn.containsKey(path[i+1])) continue;
-        final x1 = (_cn[path[i]  ]['x'] as num).toDouble(), y1 = (_cn[path[i]  ]['y'] as num).toDouble();
-        final x2 = (_cn[path[i+1]]['x'] as num).toDouble(), y2 = (_cn[path[i+1]]['y'] as num).toDouble();
-        final dx = x2-x1, dy = y2-y1; final lsq = dx*dx+dy*dy;
-        final t = lsq==0 ? 0.0 : ((cx-x1)*dx+(cy-y1)*dy)/lsq;
-        if (sqrt(pow(cx-(x1+t.clamp(0,1)*dx),2)+pow(cy-(y1+t.clamp(0,1)*dy),2)) <= r) { res.add(id); break; }
-      }
-    }
-    return res.toList();
-  }
-
   void _updatePath() {
     currentPath.clear(); _passed.clear(); _nextGate = null;
     if (startNode == null || goalNode == null) { setState(() {}); return; }
@@ -137,18 +127,18 @@ class _MapScreenState extends State<MapScreen> {
       if (_currentLabel == sL) currentPath = RouteCalculator.dijkstra(startNode!, goalNode!, _cn);
     } else {
       if (_currentLabel == sL) {
-        final conn = _connectorTo(sL, gL) ?? _stairsIn(sL);
+        final conn = _connectorTo(sL, gL) ?? _findMatchingStairs(sL, gL);
         if (conn != null) currentPath = RouteCalculator.dijkstra(startNode!, conn, _cn);
       } else if (_currentLabel == gL) {
-        final conn = _connectorTo(gL, sL) ?? _stairsIn(gL);
+        final conn = _connectorTo(gL, sL) ?? _findMatchingStairs(gL, sL);
         if (conn != null) currentPath = RouteCalculator.dijkstra(conn, goalNode!, _cn);
       }
     }
 
-    _traveled = 0; // 現在地推定用（ここではリセットしないほうが良い場合もあるが、仕様に合わせる）
+    _traveled = 0; 
     if (currentPath.isNotEmpty) {
       _tracker.startTracking(currentPath, _cn);
-      _tracker.setGates(_nearbyWaypoints(currentPath), startNode);
+      _tracker.setGates();
       _nextGate = _tracker.nextGate;
     }
     setState(() {});
@@ -320,11 +310,18 @@ class _MapScreenState extends State<MapScreen> {
 
         // 階段・接続点ボタン
         if (sF != null && gF != null && sF != gF && _currentLabel == sF && destLabel == null)
-          _sectionButton('階段に着いたら → $gF へ', Colors.green, Icons.directions_walk, () {
-            setState(() { _currentLabel = gF; _updatePath(); });
-            final s = _stairsIn(gF);
-            if (s != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(s));
-          }),
+          () {
+            bool hasMatchingStairs = false;
+            final fStairs = <String>{};
+            _maps[sF]?.forEach((k, v) { if (v['isStairs'] == true && v['name'] != null) fStairs.add(v['name']); });
+            _maps[gF]?.forEach((k, v) { if (v['isStairs'] == true && v['name'] != null && fStairs.contains(v['name'])) hasMatchingStairs = true; });
+
+            return _sectionButton(hasMatchingStairs ? '階段がつながっています → $gF へ' : '階段に着いたら → $gF へ', Colors.green, Icons.directions_walk, () {
+              setState(() { _currentLabel = gF; _updatePath(); });
+              final s = _findMatchingStairs(gF, sF);
+              if (s != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(s));
+            });
+          }(),
         if (destLabel != null)
           _sectionButton('接続点に到達 → $destLabel へ進む', Colors.deepPurple, Icons.sync_alt, () {
             final conn = _cn[currentPath.last];

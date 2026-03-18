@@ -175,59 +175,6 @@ class GridPainter extends CustomPainter {
           cellPaint.color = color;
           canvas.drawRect(rect, cellPaint);
         }
-
-        if (cell.name != null) {
-          Rect rect = Rect.fromLTWH(x * cellSize, y * cellSize, cellSize, cellSize);
-          IconData iconData = Icons.meeting_room;
-          if (cell.type == 3) iconData = Icons.meeting_room; // 部屋(黄)
-          if (cell.type == 4) iconData = Icons.stairs;       // 階段(緑)
-          if (cell.type == 5) iconData = Icons.sync_alt;     // 接続点(紫)
-          
-          TextPainter iconPainter = TextPainter(
-            text: TextSpan(
-              text: String.fromCharCode(iconData.codePoint),
-              style: TextStyle(
-                fontSize: 14.0,
-                fontFamily: iconData.fontFamily,
-                color: Colors.black87,
-              ),
-            ),
-            textDirection: TextDirection.ltr,
-          );
-          iconPainter.layout();
-
-          String formatName(String name) {
-            int limit = AppConfig.maxCharsPerLine;
-            if (name.length <= limit) return name;
-            RegExp regex = RegExp('.{1,$limit}');
-            return regex.allMatches(name).map((m) => m.group(0)).join('\n');
-          }
-
-          TextPainter textPainter = TextPainter(
-            text: TextSpan(
-              text: formatName(cell.name!),
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 10, height: 1.1),
-            ),
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.center,
-          );
-          textPainter.layout();
-
-          double totalHeight = iconPainter.height + textPainter.height;
-          double startY = rect.center.dy - totalHeight / 2;
-          iconPainter.paint(canvas, Offset(rect.center.dx - iconPainter.width / 2, startY));
-
-          double textY = startY + iconPainter.height;
-          Rect textBgRect = Rect.fromCenter(
-            center: Offset(rect.center.dx, textY + textPainter.height / 2),
-            width: textPainter.width + 4,
-            height: textPainter.height + 2,
-          );
-          final Paint textBgPaint = Paint()..color = Colors.white.withValues(alpha: 0.6);
-          canvas.drawRRect(RRect.fromRectAndRadius(textBgRect, const Radius.circular(2)), textBgPaint);
-
-          textPainter.paint(canvas, Offset(rect.center.dx - textPainter.width / 2, textY + 1));
-        }
       }
     }
 
@@ -243,25 +190,140 @@ class GridPainter extends CustomPainter {
       ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.square;
 
+    final Paint doorPaint = Paint()
+      ..color = Colors.orange.shade800
+      ..strokeWidth = 4.0
+      ..strokeCap = StrokeCap.round;
+
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < cols; x++) {
         MapCell cell = grid[y][x];
-        if (cell.wallTop) {
-           canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset((x+1)*cellSize, y*cellSize), wallPaint);
-        }
-        if (cell.wallBottom) {
-           canvas.drawLine(Offset(x*cellSize, (y+1)*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), wallPaint);
-        }
-        if (cell.wallLeft) {
-           canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset(x*cellSize, (y+1)*cellSize), wallPaint);
-        }
-        if (cell.wallRight) {
-           canvas.drawLine(Offset((x+1)*cellSize, y*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), wallPaint);
-        }
+        if (cell.wallTop)    canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset((x+1)*cellSize, y*cellSize), wallPaint);
+        if (cell.wallBottom) canvas.drawLine(Offset(x*cellSize, (y+1)*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), wallPaint);
+        if (cell.wallLeft)   canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset(x*cellSize, (y+1)*cellSize), wallPaint);
+        if (cell.wallRight)  canvas.drawLine(Offset((x+1)*cellSize, y*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), wallPaint);
+
+        if (cell.doorTop)    canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset((x+1)*cellSize, y*cellSize), doorPaint);
+        if (cell.doorBottom) canvas.drawLine(Offset(x*cellSize, (y+1)*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), doorPaint);
+        if (cell.doorLeft)   canvas.drawLine(Offset(x*cellSize, y*cellSize), Offset(x*cellSize, (y+1)*cellSize), doorPaint);
+        if (cell.doorRight)  canvas.drawLine(Offset((x+1)*cellSize, y*cellSize), Offset((x+1)*cellSize, (y+1)*cellSize), doorPaint);
       }
     }
 
     canvas.drawRect(Rect.fromLTWH(0, 0, cols * cellSize, rows * cellSize), outerBorderPaint);
+
+    final List<List<bool>> visited = List.generate(rows, (_) => List.filled(cols, false));
+    final List<List<MapCell>> groups = [];
+    
+    for (int y = 0; y < rows; y++) {
+      for (int x = 0; x < cols; x++) {
+        MapCell cell = grid[y][x];
+        if (cell.name == null || cell.type == 0 || cell.type == 1) {
+          visited[y][x] = true;
+          continue;
+        }
+        if (visited[y][x]) continue;
+        
+        List<MapCell> currentGroup = [];
+        List<MapCell> queue = [cell];
+        visited[y][x] = true;
+        
+        int head = 0;
+        while (head < queue.length) {
+          MapCell curr = queue[head++];
+          currentGroup.add(curr);
+          
+          final dirs = [ [-1,0], [1,0], [0,-1], [0,1] ];
+          for (var d in dirs) {
+            int ny = curr.y + d[0];
+            int nx = curr.x + d[1];
+            if (ny >= 0 && ny < rows && nx >= 0 && nx < cols && !visited[ny][nx]) {
+              MapCell neighbor = grid[ny][nx];
+              if (neighbor.type == cell.type && neighbor.name == cell.name && neighbor.connectsToMap == cell.connectsToMap && neighbor.connectsToNode == cell.connectsToNode) {
+                visited[ny][nx] = true;
+                queue.add(neighbor);
+              }
+            }
+          }
+        }
+        groups.add(currentGroup);
+      }
+    }
+
+    import_math: // Temporary hack to not modify line 1, wait, I MUST add import dart:math! No I will use a multi-replace if this fails.
+    // I can just replace lines 1-3 with the imports. No, let's just implement min/max manually to avoid adding an import.
+
+    for (var group in groups) {
+      if (group.isEmpty) continue;
+      
+      int minX = group.first.x, maxX = group.first.x;
+      int minY = group.first.y, maxY = group.first.y;
+      for (var c in group) {
+        if (c.x < minX) minX = c.x;
+        if (c.x > maxX) maxX = c.x;
+        if (c.y < minY) minY = c.y;
+        if (c.y > maxY) maxY = c.y;
+      }
+      
+      double centerX = (minX + maxX + 1) / 2.0 * cellSize;
+      double centerY = (minY + maxY + 1) / 2.0 * cellSize;
+      
+      MapCell rep = group.first;
+      IconData iconData = Icons.meeting_room;
+      if (rep.type == 3) iconData = Icons.meeting_room;
+      if (rep.type == 4) iconData = Icons.stairs;
+      if (rep.type == 5) iconData = Icons.sync_alt;
+
+      double groupWidth = (maxX - minX + 1) * cellSize;
+      double groupHeight = (maxY - minY + 1) * cellSize;
+      
+      double baseSize = groupWidth < groupHeight ? groupWidth : groupHeight;
+      baseSize = baseSize * AppConfig.labelSizeRatio;
+      if (baseSize < AppConfig.labelMinSize) baseSize = AppConfig.labelMinSize;
+      if (baseSize > AppConfig.labelMaxSize) baseSize = AppConfig.labelMaxSize;
+
+      TextPainter iconPainter = TextPainter(
+        text: TextSpan(
+          text: String.fromCharCode(iconData.codePoint),
+          style: TextStyle(fontSize: baseSize, fontFamily: iconData.fontFamily, color: Colors.black87),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      iconPainter.layout();
+
+      String formatName(String name) {
+        int limit = AppConfig.maxCharsPerLine;
+        if (name.length <= limit) return name;
+        RegExp regex = RegExp('.{1,$limit}');
+        return regex.allMatches(name).map((m) => m.group(0)).join('\n');
+      }
+
+      TextPainter textPainter = TextPainter(
+        text: TextSpan(
+          text: formatName(rep.name!),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: baseSize * 0.7, height: 1.1),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      );
+      textPainter.layout();
+
+      double totalHeight = iconPainter.height + textPainter.height;
+      double startY = centerY - totalHeight / 2;
+      
+      iconPainter.paint(canvas, Offset(centerX - iconPainter.width / 2, startY));
+
+      double textY = startY + iconPainter.height;
+      Rect textBgRect = Rect.fromCenter(
+        center: Offset(centerX, textY + textPainter.height / 2),
+        width: textPainter.width + 8,
+        height: textPainter.height + 4,
+      );
+      final Paint textBgPaint = Paint()..color = Colors.white.withValues(alpha: 0.85);
+      canvas.drawRRect(RRect.fromRectAndRadius(textBgRect, const Radius.circular(4)), textBgPaint);
+
+      textPainter.paint(canvas, Offset(centerX - textPainter.width / 2, textY + 1));
+    }
   }
 
   @override

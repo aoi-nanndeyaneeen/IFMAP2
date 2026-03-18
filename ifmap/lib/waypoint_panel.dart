@@ -76,17 +76,21 @@ class WaypointPanel extends StatelessWidget {
 
     // ── 現在のゲート（確認ボタン） ─────────────────────────────
     if (isNext) {
+      Color btnColor = Colors.blue.shade600;
+      if (g.isDoor) btnColor = Colors.orange.shade800;
+      else if (!g.isEnter) btnColor = Colors.teal.shade600;
+
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () => onConfirm(g.key),
-            icon: Icon(g.isEnter ? Icons.login : Icons.logout, size: 18),
+            icon: Icon(g.isDoor ? Icons.door_front_door : (g.isEnter ? Icons.login : Icons.logout), size: 18),
             label: Text('${g.label}  →  タップ',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: g.isEnter ? Colors.blue.shade600 : Colors.teal.shade600,
+              backgroundColor: btnColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
@@ -99,7 +103,7 @@ class WaypointPanel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(children: [
-        Icon(g.isEnter ? Icons.login : Icons.logout,
+        Icon(g.isDoor ? Icons.door_front_door : (g.isEnter ? Icons.login : Icons.logout),
             size: 16, color: Colors.grey.shade400),
         const SizedBox(width: 8),
         Text(g.label, style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
