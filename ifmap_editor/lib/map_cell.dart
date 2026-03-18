@@ -25,10 +25,10 @@ class MapCell {
            this.doorTop = false, this.doorRight = false, this.doorBottom = false, this.doorLeft = false});
 
   Color get color => switch (type) {
-    1 => Colors.blue.withValues(alpha: 0.45),
-    3 => Colors.yellow.shade600.withValues(alpha: 0.85),
-    4 => Colors.green.withValues(alpha: 0.85),
-    5 => Colors.deepPurple.withValues(alpha: 0.75),
+    1 => Colors.blue.withValues(alpha: 0.25),
+    3 => Colors.yellow.shade600.withValues(alpha: 0.35),
+    4 => Colors.green.withValues(alpha: 0.45),
+    5 => Colors.deepPurple.withValues(alpha: 0.45),
     _ => Colors.transparent,
   };
 

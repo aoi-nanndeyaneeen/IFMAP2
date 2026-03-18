@@ -20,4 +20,10 @@ class AppConfig {
   static const double labelMinSize = 12.0;
   // どんなに拡大してもそれ以上大きくならない最大文字サイズ (デフォルト: 40.0)
   static const double labelMaxSize = 40.0;
+  
+  // 【自動生成設定】
+  // 壁として認める最小の連続マス数
+  static const int autoWallMinLength = 7;
+  // 壁検出感度のデフォルト値
+  static const double autoWallSensitivity = 0.50; 
 }

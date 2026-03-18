@@ -5,6 +5,7 @@ import 'map_cell.dart';
 
 class CanvasArea extends StatelessWidget {
   final List<List<MapCell>> grid;
+  final List<List<MapCell>> roomGroups;
   final int brushType;
   final Uint8List? bgImageBytes;
   final GlobalKey? gridKey;
@@ -17,6 +18,7 @@ class CanvasArea extends StatelessWidget {
   const CanvasArea({
     super.key,
     required this.grid,
+    required this.roomGroups,
     required this.brushType,
     required this.bgImageBytes,
     this.gridKey,
@@ -44,6 +46,75 @@ class CanvasArea extends StatelessWidget {
           int x = (event.localPosition.dx / cellSize).floor();
           int y = (event.localPosition.dy / cellSize).floor();
           if (x >= 0 && x < AppConfig.cols && y >= 0 && y < AppConfig.rows) action(y, x, event.buttons, event.localPosition, event.position, cellSize);
+        }
+
+        List<Widget> roomWidgets = [];
+        for (var group in roomGroups) {
+          if (group.isEmpty) continue;
+          
+          int minX = group.first.x, maxX = group.first.x;
+          int minY = group.first.y, maxY = group.first.y;
+          for (var c in group) {
+            if (c.x < minX) minX = c.x;
+            if (c.x > maxX) maxX = c.x;
+            if (c.y < minY) minY = c.y;
+            if (c.y > maxY) maxY = c.y;
+          }
+          
+          double centerX = (minX + maxX + 1) / 2.0 * cellSize;
+          double centerY = (minY + maxY + 1) / 2.0 * cellSize;
+          
+          MapCell rep = group.first;
+          IconData iconData = Icons.meeting_room;
+          if (rep.type == 3) iconData = Icons.meeting_room;
+          if (rep.type == 4) iconData = Icons.stairs;
+          if (rep.type == 5) iconData = Icons.sync_alt;
+
+          double groupWidth = (maxX - minX + 1) * cellSize;
+          double groupHeight = (maxY - minY + 1) * cellSize;
+          
+          double baseSizeLabel = groupWidth < groupHeight ? groupWidth : groupHeight;
+          baseSizeLabel = baseSizeLabel * AppConfig.labelSizeRatio;
+          if (baseSizeLabel < AppConfig.labelMinSize) baseSizeLabel = AppConfig.labelMinSize;
+          if (baseSizeLabel > AppConfig.labelMaxSize) baseSizeLabel = AppConfig.labelMaxSize;
+
+          String formatName(String name) {
+            int limit = AppConfig.maxCharsPerLine;
+            if (name.length <= limit) return name;
+            RegExp regex = RegExp('.{1,$limit}');
+            return regex.allMatches(name).map((m) => m.group(0)).join('\n');
+          }
+
+          roomWidgets.add(
+            Positioned(
+              left: centerX - groupWidth / 2,
+              top: centerY - groupHeight / 2,
+              width: groupWidth,
+              height: groupHeight,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(iconData, size: baseSizeLabel, color: Colors.black87),
+                        Text(
+                          formatName(rep.name!),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: baseSizeLabel * 0.7, height: 1.1),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
         }
 
         return Container(
@@ -105,6 +176,7 @@ class CanvasArea extends StatelessWidget {
                           ),
                         ),
                       ),
+                      ...roomWidgets,
                     ],
                   ),
                 ),
@@ -211,119 +283,6 @@ class GridPainter extends CustomPainter {
     }
 
     canvas.drawRect(Rect.fromLTWH(0, 0, cols * cellSize, rows * cellSize), outerBorderPaint);
-
-    final List<List<bool>> visited = List.generate(rows, (_) => List.filled(cols, false));
-    final List<List<MapCell>> groups = [];
-    
-    for (int y = 0; y < rows; y++) {
-      for (int x = 0; x < cols; x++) {
-        MapCell cell = grid[y][x];
-        if (cell.name == null || cell.type == 0 || cell.type == 1) {
-          visited[y][x] = true;
-          continue;
-        }
-        if (visited[y][x]) continue;
-        
-        List<MapCell> currentGroup = [];
-        List<MapCell> queue = [cell];
-        visited[y][x] = true;
-        
-        int head = 0;
-        while (head < queue.length) {
-          MapCell curr = queue[head++];
-          currentGroup.add(curr);
-          
-          final dirs = [ [-1,0], [1,0], [0,-1], [0,1] ];
-          for (var d in dirs) {
-            int ny = curr.y + d[0];
-            int nx = curr.x + d[1];
-            if (ny >= 0 && ny < rows && nx >= 0 && nx < cols && !visited[ny][nx]) {
-              MapCell neighbor = grid[ny][nx];
-              if (neighbor.type == cell.type && neighbor.name == cell.name && neighbor.connectsToMap == cell.connectsToMap && neighbor.connectsToNode == cell.connectsToNode) {
-                visited[ny][nx] = true;
-                queue.add(neighbor);
-              }
-            }
-          }
-        }
-        groups.add(currentGroup);
-      }
-    }
-
-    import_math: // Temporary hack to not modify line 1, wait, I MUST add import dart:math! No I will use a multi-replace if this fails.
-    // I can just replace lines 1-3 with the imports. No, let's just implement min/max manually to avoid adding an import.
-
-    for (var group in groups) {
-      if (group.isEmpty) continue;
-      
-      int minX = group.first.x, maxX = group.first.x;
-      int minY = group.first.y, maxY = group.first.y;
-      for (var c in group) {
-        if (c.x < minX) minX = c.x;
-        if (c.x > maxX) maxX = c.x;
-        if (c.y < minY) minY = c.y;
-        if (c.y > maxY) maxY = c.y;
-      }
-      
-      double centerX = (minX + maxX + 1) / 2.0 * cellSize;
-      double centerY = (minY + maxY + 1) / 2.0 * cellSize;
-      
-      MapCell rep = group.first;
-      IconData iconData = Icons.meeting_room;
-      if (rep.type == 3) iconData = Icons.meeting_room;
-      if (rep.type == 4) iconData = Icons.stairs;
-      if (rep.type == 5) iconData = Icons.sync_alt;
-
-      double groupWidth = (maxX - minX + 1) * cellSize;
-      double groupHeight = (maxY - minY + 1) * cellSize;
-      
-      double baseSize = groupWidth < groupHeight ? groupWidth : groupHeight;
-      baseSize = baseSize * AppConfig.labelSizeRatio;
-      if (baseSize < AppConfig.labelMinSize) baseSize = AppConfig.labelMinSize;
-      if (baseSize > AppConfig.labelMaxSize) baseSize = AppConfig.labelMaxSize;
-
-      TextPainter iconPainter = TextPainter(
-        text: TextSpan(
-          text: String.fromCharCode(iconData.codePoint),
-          style: TextStyle(fontSize: baseSize, fontFamily: iconData.fontFamily, color: Colors.black87),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      iconPainter.layout();
-
-      String formatName(String name) {
-        int limit = AppConfig.maxCharsPerLine;
-        if (name.length <= limit) return name;
-        RegExp regex = RegExp('.{1,$limit}');
-        return regex.allMatches(name).map((m) => m.group(0)).join('\n');
-      }
-
-      TextPainter textPainter = TextPainter(
-        text: TextSpan(
-          text: formatName(rep.name!),
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: baseSize * 0.7, height: 1.1),
-        ),
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      );
-      textPainter.layout();
-
-      double totalHeight = iconPainter.height + textPainter.height;
-      double startY = centerY - totalHeight / 2;
-      
-      iconPainter.paint(canvas, Offset(centerX - iconPainter.width / 2, startY));
-
-      double textY = startY + iconPainter.height;
-      Rect textBgRect = Rect.fromCenter(
-        center: Offset(centerX, textY + textPainter.height / 2),
-        width: textPainter.width + 8,
-        height: textPainter.height + 4,
-      );
-      final Paint textBgPaint = Paint()..color = Colors.white.withValues(alpha: 0.85);
-      canvas.drawRRect(RRect.fromRectAndRadius(textBgRect, const Radius.circular(4)), textBgPaint);
-
-      textPainter.paint(canvas, Offset(centerX - textPainter.width / 2, textY + 1));
-    }
   }
 
   @override
