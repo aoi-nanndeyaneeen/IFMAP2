@@ -297,58 +297,61 @@ class _EditorScreenState extends State<EditorScreen> {
 
   // 指を離すまで同じ壁を何度も上書きしないためのセット
   final Set<String> _currentStrokeBoundaries = {};
+  int? _lastVertexX;
+  int? _lastVertexY;
 
-  void _applyBoundary(int y, int x, Offset localPos, double cellSize, bool erase, bool isDoor) {
-    double relX = localPos.dx % cellSize;
-    double relY = localPos.dy % cellSize;
-    
-    double distTop = relY;
-    double distBottom = cellSize - relY;
-    double distLeft = relX;
-    double distRight = cellSize - relX;
-    
-    double minDist = [distTop, distBottom, distLeft, distRight].reduce((a, b) => a < b ? a : b);
-    
-    String direction = 'right';
-    if (minDist == distTop) direction = 'top';
-    else if (minDist == distBottom) direction = 'bottom';
-    else if (minDist == distLeft) direction = 'left';
+  void _toggleEdge(int vx1, int vy1, int vx2, int vy2, bool erase, bool isDoor) {
+      if (vx1 == vx2 && vy1 == vy2) return;
+      int minX = vx1 < vx2 ? vx1 : vx2;
+      int minY = vy1 < vy2 ? vy1 : vy2;
+      
+      String boundId = '${minX}_${minY}_${vx1==vx2 ? "v" : "h"}';
+      if (_currentStrokeBoundaries.contains(boundId)) return;
+      _currentStrokeBoundaries.add(boundId);
 
-    String boundId = '${y}_${x}_$direction';
-    if (_currentStrokeBoundaries.contains(boundId)) return;
-    _currentStrokeBoundaries.add(boundId);
-    
-    setState(() {
-      if (direction == 'top') {
-        if (isDoor) { grid[y][x].doorTop = !erase; grid[y][x].wallTop = false; }
-        else { grid[y][x].wallTop = !erase; grid[y][x].doorTop = false; }
-        if (y > 0) {
-           if (isDoor) { grid[y-1][x].doorBottom = !erase; grid[y-1][x].wallBottom = false; }
-           else { grid[y-1][x].wallBottom = !erase; grid[y-1][x].doorBottom = false; }
-        }
-      } else if (direction == 'bottom') {
-        if (isDoor) { grid[y][x].doorBottom = !erase; grid[y][x].wallBottom = false; }
-        else { grid[y][x].wallBottom = !erase; grid[y][x].doorBottom = false; }
-        if (y < AppConfig.rows - 1) {
-           if (isDoor) { grid[y+1][x].doorTop = !erase; grid[y+1][x].wallTop = false; }
-           else { grid[y+1][x].wallTop = !erase; grid[y+1][x].doorTop = false; }
-        }
-      } else if (direction == 'left') {
-        if (isDoor) { grid[y][x].doorLeft = !erase; grid[y][x].wallLeft = false; }
-        else { grid[y][x].wallLeft = !erase; grid[y][x].doorLeft = false; }
-        if (x > 0) {
-           if (isDoor) { grid[y][x-1].doorRight = !erase; grid[y][x-1].wallRight = false; }
-           else { grid[y][x-1].wallRight = !erase; grid[y][x-1].doorRight = false; }
-        }
-      } else if (direction == 'right') {
-        if (isDoor) { grid[y][x].doorRight = !erase; grid[y][x].wallRight = false; }
-        else { grid[y][x].wallRight = !erase; grid[y][x].doorRight = false; }
-        if (x < AppConfig.cols - 1) {
-           if (isDoor) { grid[y][x+1].doorLeft = !erase; grid[y][x+1].wallLeft = false; }
-           else { grid[y][x+1].wallLeft = !erase; grid[y][x+1].doorLeft = false; }
-        }
-      }
-    });
+      setState(() {
+         if (vx1 == vx2) {
+             int x = vx1;
+             int y = minY;
+             if (y >= 0 && y < AppConfig.rows) {
+                 if (x == 0) {
+                     if (isDoor) { grid[y][0].doorLeft = !erase; grid[y][0].wallLeft = false; }
+                     else { grid[y][0].wallLeft = !erase; grid[y][0].doorLeft = false; }
+                 } else if (x == AppConfig.cols) {
+                     if (isDoor) { grid[y][x-1].doorRight = !erase; grid[y][x-1].wallRight = false; }
+                     else { grid[y][x-1].wallRight = !erase; grid[y][x-1].doorRight = false; }
+                 } else {
+                     if (isDoor) {
+                         grid[y][x].doorLeft = !erase; grid[y][x].wallLeft = false;
+                         grid[y][x-1].doorRight = !erase; grid[y][x-1].wallRight = false;
+                     } else {
+                         grid[y][x].wallLeft = !erase; grid[y][x].doorLeft = false;
+                         grid[y][x-1].wallRight = !erase; grid[y][x-1].doorRight = false;
+                     }
+                 }
+             }
+         } else {
+             int x = minX;
+             int y = vy1;
+             if (x >= 0 && x < AppConfig.cols) {
+                 if (y == 0) {
+                     if (isDoor) { grid[0][x].doorTop = !erase; grid[0][x].wallTop = false; }
+                     else { grid[0][x].wallTop = !erase; grid[0][x].doorTop = false; }
+                 } else if (y == AppConfig.rows) {
+                     if (isDoor) { grid[y-1][x].doorBottom = !erase; grid[y-1][x].wallBottom = false; }
+                     else { grid[y-1][x].wallBottom = !erase; grid[y-1][x].doorBottom = false; }
+                 } else {
+                     if (isDoor) {
+                         grid[y][x].doorTop = !erase; grid[y][x].wallTop = false;
+                         grid[y-1][x].doorBottom = !erase; grid[y-1][x].wallBottom = false;
+                     } else {
+                         grid[y][x].wallTop = !erase; grid[y][x].doorTop = false;
+                         grid[y-1][x].wallBottom = !erase; grid[y-1][x].doorBottom = false;
+                     }
+                 }
+             }
+         }
+      });
   }
 
   void _applyPointerMove(int y, int x, int buttons, Offset localPos, double cellSize) {
@@ -357,8 +360,28 @@ class _EditorScreenState extends State<EditorScreen> {
     if (activeBrush == 6) return;
 
     if (activeBrush == 7 || activeBrush == 8) {
-      _applyBoundary(y, x, localPos, cellSize, isRightClickEraser, activeBrush == 8);
-      return;
+       int curVx = (localPos.dx / cellSize).round().clamp(0, AppConfig.cols);
+       int curVy = (localPos.dy / cellSize).round().clamp(0, AppConfig.rows);
+       
+       if (_lastVertexX != null && _lastVertexY != null) {
+          int vx = _lastVertexX!;
+          int vy = _lastVertexY!;
+          
+          while (vx != curVx || vy != curVy) {
+             if ((curVx - vx).abs() > (curVy - vy).abs()) {
+                 int nextVx = vx + (curVx > vx ? 1 : -1);
+                 _toggleEdge(vx, vy, nextVx, vy, isRightClickEraser, activeBrush == 8);
+                 vx = nextVx;
+             } else {
+                 int nextVy = vy + (curVy > vy ? 1 : -1);
+                 _toggleEdge(vx, vy, vx, nextVy, isRightClickEraser, activeBrush == 8);
+                 vy = nextVy;
+             }
+          }
+       }
+       _lastVertexX = curVx;
+       _lastVertexY = curVy;
+       return;
     }
 
     if (isRightClickEraser || drawMode == 'stroke') {
@@ -442,7 +465,8 @@ class _EditorScreenState extends State<EditorScreen> {
     _currentStrokeBoundaries.clear();
 
     if (activeBrush == 7 || activeBrush == 8) {
-      _applyBoundary(y, x, localPos, cellSize, isRightClickEraser, activeBrush == 8);
+      _lastVertexX = (localPos.dx / cellSize).round().clamp(0, AppConfig.cols);
+      _lastVertexY = (localPos.dy / cellSize).round().clamp(0, AppConfig.rows);
       return;
     }
 
