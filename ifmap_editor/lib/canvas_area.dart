@@ -7,10 +7,11 @@ class CanvasArea extends StatelessWidget {
   final List<List<MapCell>> grid;
   final int brushType;
   final Uint8List? bgImageBytes;
+  final GlobalKey? gridKey;
   final TransformationController? transformController;
   final int? dragStartX, dragStartY, dragCurrentX, dragCurrentY;
-  final Function(int, int, int, Offset, double) onPointerDown;
-  final Function(int, int, int, Offset, double) onPointerMove;
+  final Function(int, int, int, Offset, Offset, double) onPointerDown;
+  final Function(int, int, int, Offset, Offset, double) onPointerMove;
   final VoidCallback onPointerUp;
 
   const CanvasArea({
@@ -18,6 +19,7 @@ class CanvasArea extends StatelessWidget {
     required this.grid,
     required this.brushType,
     required this.bgImageBytes,
+    this.gridKey,
     this.transformController,
     this.dragStartX, this.dragStartY, this.dragCurrentX, this.dragCurrentY,
     required this.onPointerDown,
@@ -38,10 +40,10 @@ class CanvasArea extends StatelessWidget {
         double totalWidth = cellSize * AppConfig.cols;
         double totalHeight = cellSize * AppConfig.rows;
 
-        void resolvePointer(PointerEvent event, Function(int, int, int, Offset, double) action) {
+        void resolvePointer(PointerEvent event, Function(int, int, int, Offset, Offset, double) action) {
           int x = (event.localPosition.dx / cellSize).floor();
           int y = (event.localPosition.dy / cellSize).floor();
-          if (x >= 0 && x < AppConfig.cols && y >= 0 && y < AppConfig.rows) action(y, x, event.buttons, event.localPosition, cellSize);
+          if (x >= 0 && x < AppConfig.cols && y >= 0 && y < AppConfig.rows) action(y, x, event.buttons, event.localPosition, event.position, cellSize);
         }
 
         return Container(
@@ -74,7 +76,9 @@ class CanvasArea extends StatelessWidget {
                   resolvePointer(e, onPointerMove);
                 },
                 onPointerUp: (_) => onPointerUp(),
+                onPointerCancel: (_) => onPointerUp(),
                 child: SizedBox(
+                  key: gridKey,
                   width: totalWidth,
                   height: totalHeight,
                   child: Stack(

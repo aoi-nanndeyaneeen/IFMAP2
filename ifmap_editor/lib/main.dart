@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'config.dart';
@@ -9,7 +11,11 @@ import 'tool_palette.dart';
 import 'json_exporter.dart';
 import 'canvas_area.dart';
 
-void main() => runApp(const MapEditorApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await BrowserContextMenu.disableContextMenu();
+  runApp(const MapEditorApp());
+}
 
 class MapEditorApp extends StatelessWidget {
   const MapEditorApp({super.key});
@@ -38,6 +44,12 @@ class _EditorScreenState extends State<EditorScreen> {
 
   int? dragStartX, dragStartY, dragCurrentX, dragCurrentY;
   final TransformationController _transformController = TransformationController();
+  final GlobalKey _canvasViewportKey = GlobalKey();
+  final GlobalKey _gridKey = GlobalKey();
+
+  Timer? _edgePanTimer;
+  Offset? _currentGlobalPointer;
+  int _currentButtons = 0;
 
   List<List<List<MapCell>>> undoHistory = [];
   List<List<List<MapCell>>> redoHistory = [];
@@ -309,8 +321,84 @@ class _EditorScreenState extends State<EditorScreen> {
     });
   }
 
-  Future<void> _onPointerDown(int y, int x, int buttons, Offset localPos, double cellSize) async {
+  void _applyPointerMove(int y, int x, int buttons, Offset localPos, double cellSize) {
+    int activeBrush = brushType;
+    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
+    if (activeBrush == 6) return;
+
+    if (activeBrush == 7) {
+      _applyWall(y, x, localPos, cellSize, isRightClickEraser);
+      return;
+    }
+
+    if (isRightClickEraser || drawMode == 'stroke') {
+      currentStrokeCells.add(grid[y][x]);
+      setState(() {
+        grid[y][x].type = activeBrush;
+        if (activeBrush == 0) {
+          grid[y][x].name = null;
+          grid[y][x].connectsToMap = null;
+          grid[y][x].connectsToNode = null;
+          grid[y][x].wallTop = false;
+          grid[y][x].wallBottom = false;
+          grid[y][x].wallLeft = false;
+          grid[y][x].wallRight = false;
+          if (y > 0) grid[y-1][x].wallBottom = false;
+          if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = false;
+          if (x > 0) grid[y][x-1].wallRight = false;
+          if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = false;
+        }
+      });
+    } else {
+      if (dragStartX != null) {
+        setState(() { dragCurrentX = x; dragCurrentY = y; });
+      }
+    }
+  }
+
+  void _checkEdgePan() {
+    if (_currentGlobalPointer == null) return;
+    final RenderBox? canvasBox = _canvasViewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (canvasBox == null) return;
+
+    final localInViewport = canvasBox.globalToLocal(_currentGlobalPointer!);
+    final size = canvasBox.size;
+    const double threshold = 50.0;
+    const double speed = 15.0;
+
+    double dx = 0; double dy = 0;
+    if (localInViewport.dx < threshold) dx = speed;
+    else if (localInViewport.dx > size.width - threshold) dx = -speed;
+    if (localInViewport.dy < threshold) dy = speed;
+    else if (localInViewport.dy > size.height - threshold) dy = -speed;
+
+    if (dx != 0 || dy != 0) {
+      final matrix = _transformController.value.clone();
+      matrix[12] += dx;
+      matrix[13] += dy;
+      _transformController.value = matrix;
+
+      final RenderBox? gridBox = _gridKey.currentContext?.findRenderObject() as RenderBox?;
+      if (gridBox != null) {
+        final unscaledLocal = gridBox.globalToLocal(_currentGlobalPointer!);
+        final cellSize = gridBox.size.width / AppConfig.cols;
+        int x = (unscaledLocal.dx / cellSize).floor();
+        int y = (unscaledLocal.dy / cellSize).floor();
+        if (x >= 0 && x < AppConfig.cols && y >= 0 && y < AppConfig.rows) {
+          _applyPointerMove(y, x, _currentButtons, unscaledLocal, cellSize);
+        }
+      }
+    }
+  }
+
+  Future<void> _onPointerDown(int y, int x, int buttons, Offset localPos, Offset globalPos, double cellSize) async {
+    _currentGlobalPointer = globalPos;
+    _currentButtons = buttons;
     isRightClickEraser = buttons == 2;
+    
+    _edgePanTimer?.cancel();
+    _edgePanTimer = Timer.periodic(const Duration(milliseconds: 16), (_) => _checkEdgePan());
+
     int activeBrush = brushType;
     if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
     if (activeBrush == 6) return;
@@ -356,42 +444,17 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
-  void _onPointerMove(int y, int x, int buttons, Offset localPos, double cellSize) {
-    int activeBrush = brushType;
-    if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
-    if (activeBrush == 6) return;
-
-    if (activeBrush == 7) {
-      _applyWall(y, x, localPos, cellSize, isRightClickEraser);
-      return;
-    }
-
-    if (isRightClickEraser || drawMode == 'stroke') {
-      currentStrokeCells.add(grid[y][x]);
-      setState(() {
-        grid[y][x].type = activeBrush;
-        if (activeBrush == 0) {
-          grid[y][x].name = null;
-          grid[y][x].connectsToMap = null;
-          grid[y][x].connectsToNode = null;
-          grid[y][x].wallTop = false;
-          grid[y][x].wallBottom = false;
-          grid[y][x].wallLeft = false;
-          grid[y][x].wallRight = false;
-          if (y > 0) grid[y-1][x].wallBottom = false;
-          if (y < AppConfig.rows - 1) grid[y+1][x].wallTop = false;
-          if (x > 0) grid[y][x-1].wallRight = false;
-          if (x < AppConfig.cols - 1) grid[y][x+1].wallLeft = false;
-        }
-      });
-    } else {
-      if (dragStartX != null) {
-        setState(() { dragCurrentX = x; dragCurrentY = y; });
-      }
-    }
+  void _onPointerMove(int y, int x, int buttons, Offset localPos, Offset globalPos, double cellSize) {
+    _currentGlobalPointer = globalPos;
+    _currentButtons = buttons;
+    _applyPointerMove(y, x, buttons, localPos, cellSize);
   }
 
   Future<void> _onPointerUp() async {
+    _edgePanTimer?.cancel();
+    _edgePanTimer = null;
+    _currentGlobalPointer = null;
+
     int activeBrush = brushType;
     if (isRightClickEraser && activeBrush != 7) activeBrush = 0;
     if (activeBrush == 6 || activeBrush == 7) return;
@@ -555,6 +618,8 @@ class _EditorScreenState extends State<EditorScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: CanvasArea(
+                  key: _canvasViewportKey,
+                  gridKey: _gridKey,
                   grid: grid,
                   brushType: brushType,
                   bgImageBytes: bgImageBytes,
