@@ -1,27 +1,46 @@
 // lib/config.dart
 
+/// マップ1件分の定義
+class MapSection {
+  final String path;  // pubspec.yaml の assets に登録したパス
+  final String label; // UI表示名 & JSON の connectsToMap と完全一致させること
+  const MapSection({required this.path, required this.label});
+}
+
 class AppConfig {
-  static const String map1FPath = 'assets/map_1f.json';
-  static const String map2FPath = 'assets/map_2f.json';
-  static const double mapCanvasSize = 600.0;
+  // ── マップ一覧 ─────────────────────────────────────────────────
+  // 建物・フロアを追加するときはここにエントリを足すだけ。
+  // あわせて pubspec.yaml の assets: にも同じパスを追加すること。
+  static const List<MapSection> mapSections = [
+    MapSection(path: 'assets/map_1f.json', label: '1F'),
+    MapSection(path: 'assets/map_2f.json', label: '2F'),
+    // MapSection(path: 'assets/map_newbldg_1f.json', label: '新館1F'),
+  ];
 
-  // ── 歩数推定 ───────────────────────────────────────────────────
-  // 縮尺: 11px = 3.2m → 1px ≈ 0.29m → 歩幅0.7m ÷ 0.29 ≈ 2.4px/歩
-  // キャリブレーション手順:
-  //   ① 既知の廊下（例:10m）を歩いて歩数を数える（例:15歩）
-  //   ② 同区間のJSON上のピクセル数を確認（例:34px）
-  //   ③ stepLengthPx = 34 ÷ 15 ≈ 2.3
-  static const double stepLengthPx = 2.4;
+  // ── 縮尺（ifmap_editor の config.dart と必ず揃えること） ────────
+  // editor側:  1マス = metersPerCell(0.5m), JSON座標 = マス番号 × pxPerCell(10)
+  // navigator: 1 JSON-px = metersPerCell ÷ pxPerCell = 0.5 ÷ 10 = 0.05 m
+  static const double metersPerPx  = 0.05;  // 1 JSON-px が表す実距離(m)
+  static const double strideMeters = 0.7;   // 平均歩幅(m) ※実測でキャリブレーション
 
-  // 加速度センサーの歩数検出しきい値 (m/s², 重力除去後)
-  // 感度が高すぎる(誤検出多い)→大きく、低すぎる(進まない)→小さく
-  static const double stepAccelThreshold = 3.0;
+  /// 歩数センサー: 1歩あたりのJSON-px数（自動計算）
+  static double get stepLengthPx => strideMeters / metersPerPx; // = 14.0 px
+
+  // 加速度しきい値: 高い→鈍感(誤検出減) / 低い→敏感(進みやすい)
+  static const double stepAccelThreshold = 1.0;
 
   // ── コンパス ───────────────────────────────────────────────────
-  // マップの「上方向」が指す磁北方位角（度）
-  // 例: マップ上方向が真北なら 0、東向きなら 90
-  // キャリブレーション手順:
-  //   ① マップの「上」方向を向いてコンパス表示の値を読む
-  //   ② その値をここに設定する
-  static const double mapNorthDegrees = 0.0;
+  // マップの「上」方向が指す磁北方位角(度)
+  // キャリブレーション: マップ上方向を実際に向いたときのコンパス値を入れる
+  static const double mapNorthDegrees = -90.0;
+
+  // ── マップ描画 ─────────────────────────────────────────────────
+  static const double mapCanvasSize     = 600.0; // CustomPaintのサイズ(px)
+  static const double focusScale        = 1.8;   // QR後・追従時のズーム倍率
+  static const double focusVerticalRatio = 0.5;  // 現在地の縦位置(0=上端, 0.5=中央)
+
+  // ── ゲート(通過点)検出 ─────────────────────────────────────────
+  // 部屋とみなす半径: 5マス × 10px/マス = 50px
+  // editor の metersPerCell/pxPerCell を変えたらここも更新すること
+  static const double waypointRadiusPx = 50.0;
 }

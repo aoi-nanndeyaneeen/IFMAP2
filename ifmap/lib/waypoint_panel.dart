@@ -1,61 +1,42 @@
 // lib/waypoint_panel.dart
 import 'package:flutter/material.dart';
+import 'step_tracker.dart'; // GateInfo
 
-/// ルート上の名前付きノードを通過チップ＋到着ボタンで表示するウィジェット
+/// 入退室ゲートをTodoリスト式で表示するウィジェット。
+/// 現在のゲート（nextGate）の確認ボタンが押されるまでセンサーはそこで停止する。
 class WaypointPanel extends StatelessWidget {
-  final List<String> waypoints; // 経路上の名前付きノード（node_xxx 以外）
-  final Set<String> passed;     // 通過済みノード
-  final void Function(String) onTap;
-  final VoidCallback? onArrived; // nullなら到着ボタン非表示
+  final List<GateInfo> orderedGates; // ルート順のゲート一覧
+  final Set<String>    passed;       // 確認済みゲートのkey集合
+  final GateInfo?      nextGate;     // 現在止まっているゲート（nullなら自由移動中）
+  final void Function(String gateKey) onConfirm;
+  final VoidCallback? onArrived;
 
   const WaypointPanel({
     super.key,
-    required this.waypoints,
+    required this.orderedGates,
     required this.passed,
-    required this.onTap,
+    required this.nextGate,
+    required this.onConfirm,
     this.onArrived,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (waypoints.isEmpty && onArrived == null) return const SizedBox.shrink();
-
+    if (orderedGates.isEmpty && onArrived == null) return const SizedBox.shrink();
     return Container(
       color: Colors.grey.shade50,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // ── 通過点チップ ──────────────────────────────────────
-          if (waypoints.isNotEmpty) ...[
-            const Text(
-              '📌 経路上の場所を通過したらタップ → 現在地が更新されます',
-              style: TextStyle(fontSize: 10, color: Colors.grey),
-            ),
-            const SizedBox(height: 2),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: waypoints.map((wp) {
-                  final done = passed.contains(wp);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6, bottom: 2),
-                    child: FilterChip(
-                      label: Text(wp, style: const TextStyle(fontSize: 12)),
-                      selected: done,
-                      selectedColor: Colors.green.shade200,
-                      checkmarkColor: Colors.green.shade800,
-                      avatar: done ? null : const Icon(Icons.place_outlined, size: 14),
-                      showCheckmark: true,
-                      onSelected: (_) => onTap(wp),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
+          if (orderedGates.isNotEmpty) ...[
+            const Text('🚪 経路チェックポイント',
+                style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            ...orderedGates.map((g) => _buildRow(g)),
+            const SizedBox(height: 4),
           ],
-
-          // ── 到着ボタン ────────────────────────────────────────
           if (onArrived != null)
             SizedBox(
               width: double.infinity,
@@ -72,6 +53,57 @@ class WaypointPanel extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRow(GateInfo g) {
+    final done   = passed.contains(g.key);
+    final isNext = g.key == nextGate?.key;
+
+    // ── 確認済み ───────────────────────────────────────────────
+    if (done) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [
+          Icon(Icons.check_circle, size: 18, color: Colors.green.shade400),
+          const SizedBox(width: 8),
+          Text(g.label,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500,
+                  decoration: TextDecoration.lineThrough)),
+        ]),
+      );
+    }
+
+    // ── 現在のゲート（確認ボタン） ─────────────────────────────
+    if (isNext) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => onConfirm(g.key),
+            icon: Icon(g.isEnter ? Icons.login : Icons.logout, size: 18),
+            label: Text('${g.label}  →  タップ',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: g.isEnter ? Colors.blue.shade600 : Colors.teal.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ── 未来のゲート ───────────────────────────────────────────
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        Icon(g.isEnter ? Icons.login : Icons.logout,
+            size: 16, color: Colors.grey.shade400),
+        const SizedBox(width: 8),
+        Text(g.label, style: TextStyle(fontSize: 13, color: Colors.grey.shade400)),
+      ]),
     );
   }
 }
