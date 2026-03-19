@@ -5,25 +5,39 @@ import 'config.dart';
 
 class MapPainter extends CustomPainter {
   final Map<String, dynamic> nodes;
+  final List<dynamic> cells;
+  final List<dynamic> rooms; // 部屋の中心点データ
   final List<String> path;
   final String? startNode;
   final String? goalNode;
+  final String currentLabel; // 現在のフロアラベル
   final Offset? estimatedPosition;
   final double? headingDeg; // ★ コンパス方位角（度）
 
   MapPainter({
     required this.nodes,
+    required this.cells,
+    required this.rooms,
     required this.path,
     this.startNode,
     this.goalNode,
+    required this.currentLabel,
     this.estimatedPosition,
     this.headingDeg,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 1Fの表現（ラベルに1Fが含まれる場合）
+    if (currentLabel.toUpperCase().contains('1F')) {
+      canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFE8F5E9)); // より明確な薄緑
+    }
+
     // 背景のグリッド（プレミアム感の追加）
     _drawGrid(canvas, size);
+
+    // 【0層目】背景セルの描画 (部屋の塗りつぶしと壁)
+    _drawCells(canvas);
 
     final edgePaint = Paint()
       ..color = Colors.blueGrey.withValues(alpha: 0.1)
@@ -45,16 +59,20 @@ class MapPainter extends CustomPainter {
 
     // 【1層目】すべての道（背景として薄く）
     for (String nId in nodes.keys) {
-      if (nId == '_editorData') continue;
-      final x1 = (nodes[nId]['x'] as num).toDouble();
-      final y1 = (nodes[nId]['y'] as num).toDouble();
-      for (String tId in nodes[nId]['edges']) {
-        if (nodes.containsKey(tId)) {
-          canvas.drawLine(
-            Offset(x1, y1),
-            Offset((nodes[tId]['x'] as num).toDouble(), (nodes[tId]['y'] as num).toDouble()),
-            edgePaint,
-          );
+      if (nodes[nId] is! Map) continue; // メタデータ等をスキップ
+      final node = nodes[nId] as Map<String, dynamic>;
+      final x1 = (node['x'] as num?)?.toDouble();
+      final y1 = (node['y'] as num?)?.toDouble();
+      if (x1 == null || y1 == null) continue;
+
+      for (String tId in node['edges'] ?? []) {
+        final target = nodes[tId];
+        if (target is Map<String, dynamic>) {
+          final x2 = (target['x'] as num?)?.toDouble();
+          final y2 = (target['y'] as num?)?.toDouble();
+          if (x2 != null && y2 != null) {
+            canvas.drawLine(Offset(x1, y1), Offset(x2, y2), edgePaint);
+          }
         }
       }
     }
@@ -64,8 +82,13 @@ class MapPainter extends CustomPainter {
       final routePath = Path();
       bool first = true;
       for (int i = 0; i < path.length; i++) {
-        if (!nodes.containsKey(path[i])) continue;
-        final p = Offset((nodes[path[i]]['x'] as num).toDouble(), (nodes[path[i]]['y'] as num).toDouble());
+        final node = nodes[path[i]];
+        if (node is! Map) continue;
+        final x = (node['x'] as num?)?.toDouble();
+        final y = (node['y'] as num?)?.toDouble();
+        if (x == null || y == null) continue;
+        
+        final p = Offset(x + 5, y + 5);
         if (first) {
           routePath.moveTo(p.dx, p.dy);
           first = false;
@@ -78,48 +101,67 @@ class MapPainter extends CustomPainter {
 
       // 進行方向の矢印
       for (int i = 0; i < path.length - 1; i++) {
-        if (!nodes.containsKey(path[i]) || !nodes.containsKey(path[i+1])) continue;
-        final p1 = Offset((nodes[path[i]]['x'] as num).toDouble(), (nodes[path[i]]['y'] as num).toDouble());
-        final p2 = Offset((nodes[path[i+1]]['x'] as num).toDouble(), (nodes[path[i+1]]['y'] as num).toDouble());
-        _drawArrow(canvas, p1, p2);
+        final p1 = nodes[path[i]];
+        final p2 = nodes[path[i+1]];
+        if (p1 is! Map || p2 is! Map) continue;
+        
+        final x1 = (p1['x'] as num?)?.toDouble();
+        final y1 = (p1['y'] as num?)?.toDouble();
+        final x2 = (p2['x'] as num?)?.toDouble();
+        final y2 = (p2['y'] as num?)?.toDouble();
+        
+        if (x1 != null && y1 != null && x2 != null && y2 != null) {
+          _drawArrow(canvas, Offset(x1 + 5, y1 + 5), Offset(x2 + 5, y2 + 5));
+        }
       }
     }
 
-    // 【3層目】ノードとラベル
-    final List<String> roomNodes = [];
+    // 【3層目】ノード
     final List<String> specialNodes = []; // スタート、ゴール、階段
 
     for (String nId in nodes.keys) {
-      if (nId == '_editorData') continue;
-      if (nId == startNode || nId == goalNode || nodes[nId]['isStairs'] == true) {
+      final node = nodes[nId];
+      if (node is! Map) continue;
+      
+      if (nId == startNode || nId == goalNode || node['isStairs'] == true) {
         specialNodes.add(nId);
-      } else if (!nId.startsWith('node_')) {
-        roomNodes.add(nId);
       } else {
-        canvas.drawCircle(
-          Offset((nodes[nId]['x'] as num).toDouble(), (nodes[nId]['y'] as num).toDouble()),
-          1.5,
-          Paint()..color = Colors.blueGrey.withValues(alpha: 0.2),
-        );
+        final x = (node['x'] as num?)?.toDouble();
+        final y = (node['y'] as num?)?.toDouble();
+        if (x != null && y != null) {
+          canvas.drawCircle(Offset(x + 5, y + 5), 1.5, Paint()..color = Colors.blueGrey.withValues(alpha: 0.2));
+        }
       }
     }
 
-    // 部屋ラベルの描画
-    for (String nId in roomNodes) {
-      final pos = Offset((nodes[nId]['x'] as num).toDouble(), (nodes[nId]['y'] as num).toDouble());
-      _drawLabel(canvas, nId, pos, Colors.indigo.shade800, Colors.indigo.shade50);
+    // 部屋ラベルの描画 (事前計算された中心点を使用)
+    for (final room in rooms) {
+      if (room is Map) {
+        final name = room['name'] as String?;
+        final cx = (room['centerX'] as num?)?.toDouble();
+        final cy = (room['centerY'] as num?)?.toDouble();
+        if (name != null && cx != null && cy != null) {
+          _drawLabel(canvas, name, Offset(cx, cy), Colors.indigo.shade800, Colors.indigo.shade50);
+        }
+      }
     }
 
-    // 特別なノードの描画
+    // 特別なノードの描画 (アイコン類)
     for (String nId in specialNodes) {
-      final pos = Offset((nodes[nId]['x'] as num).toDouble(), (nodes[nId]['y'] as num).toDouble());
-      if (nId == startNode) {
+      final node = nodes[nId];
+      if (node is! Map) continue;
+      final x = (node['x'] as num?)?.toDouble();
+      final y = (node['y'] as num?)?.toDouble();
+      if (x == null || y == null) continue;
+      final pos = Offset(x + 5, y + 5); 
+
+      if (nId == startNode || node['name'] == startNode) {
         _drawMarker(canvas, pos, Colors.green);
         _drawBadge(canvas, '出発地', Offset(pos.dx, pos.dy - 35), Colors.green.shade700);
-      } else if (nId == goalNode) {
+      } else if (nId == goalNode || node['name'] == goalNode) {
         _drawMarker(canvas, pos, Colors.orange);
         _drawBadge(canvas, '目的地', Offset(pos.dx, pos.dy - 35), Colors.orange.shade700);
-      } else if (nodes[nId]['isStairs'] == true) {
+      } else if (node['isStairs'] == true) {
         _drawMarker(canvas, pos, Colors.purple);
         _drawLabel(canvas, '階段', pos, Colors.purple.shade800, Colors.purple.shade50);
       }
@@ -144,6 +186,57 @@ class MapPainter extends CustomPainter {
 
       canvas.drawCircle(p, 8, Paint()..color = Colors.white);
       canvas.drawCircle(p, 6, Paint()..color = Colors.cyan.shade600);
+    }
+  }
+
+  void _drawCells(Canvas canvas) {
+    final cellW = 10.0; // 本来はAppConfig.pxPerCellだが、一旦固定(editor側と一致)
+    final cellH = 10.0;
+
+    final wallPaint = Paint()
+      ..color = Colors.blueGrey.shade800
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.square;
+
+    final doorPaint = Paint()
+      ..color = Colors.orange.shade400
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.butt;
+
+    for (var c in cells) {
+      if (c is! Map) continue;
+      final x = (c['x'] as num).toDouble() * cellW;
+      final y = (c['y'] as num).toDouble() * cellH;
+      final type = c['type'] as int? ?? 0;
+      final name = c['name'] as String?;
+
+      // 1. セルの背景色
+      Color? bgColor;
+      if (type == 1) bgColor = Colors.blueGrey.shade50; // 通路
+      if (type == 3 || name != null) bgColor = Colors.indigo.shade50; // 目的地/部屋
+      if (type == 4) bgColor = Colors.green.shade50; // 階段
+      if (type == 5) bgColor = Colors.deepPurple.shade50; // 接続点
+
+      if (bgColor != null) {
+        canvas.drawRect(Rect.fromLTWH(x, y, cellW, cellH), Paint()..color = bgColor);
+      }
+
+      // 2. 壁の描画
+      if (c['wallTop'] == true)    canvas.drawLine(Offset(x, y), Offset(x + cellW, y), wallPaint);
+      if (c['wallBottom'] == true) canvas.drawLine(Offset(x, y + cellH), Offset(x + cellW, y + cellH), wallPaint);
+      if (c['wallLeft'] == true)   canvas.drawLine(Offset(x, y), Offset(x, y + cellH), wallPaint);
+      if (c['wallRight'] == true)  canvas.drawLine(Offset(x + cellW, y), Offset(x + cellW, y + cellH), wallPaint);
+
+      // 3. 扉の描画 (より太く、茶色系で表現)
+      final doorPaint = Paint()
+        ..color = Colors.brown.shade400
+        ..strokeWidth = 4.0
+        ..strokeCap = StrokeCap.round;
+
+      if (c['doorTop'] == true)    canvas.drawLine(Offset(x + 2, y), Offset(x + cellW - 2, y), doorPaint);
+      if (c['doorBottom'] == true) canvas.drawLine(Offset(x + 2, y + cellH), Offset(x + cellW - 2, y + cellH), doorPaint);
+      if (c['doorLeft'] == true)   canvas.drawLine(Offset(x, y + 2), Offset(x, y + cellH - 2), doorPaint);
+      if (c['doorRight'] == true)  canvas.drawLine(Offset(x + cellW, y + 2), Offset(x + cellW, y + cellH - 2), doorPaint);
     }
   }
 
@@ -186,11 +279,11 @@ class MapPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     
-    final rect = Rect.fromCenter(center: Offset(pos.dx, pos.dy + 15), width: tp.width + 10, height: tp.height + 4);
+    final rect = Rect.fromCenter(center: pos, width: tp.width + 10, height: tp.height + 4);
     canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(10)), Paint()..color = bgColor);
     canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(10)), Paint()..color = textColor.withValues(alpha: 0.2)..style = PaintingStyle.stroke..strokeWidth = 1);
     
-    tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy + 15 - tp.height / 2));
+    tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy - tp.height / 2));
   }
 
   void _drawBadge(Canvas canvas, String text, Offset pos, Color color) {

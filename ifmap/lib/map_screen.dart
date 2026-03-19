@@ -21,9 +21,11 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final Map<String, Map<String, dynamic>> _maps = {};
+  final Map<String, Map<String, dynamic>> _nodes = {};
+  final Map<String, List<dynamic>> _cells = {}; // 背景描画用のセルデータ
+  final Map<String, List<dynamic>> _rooms = {}; // 部屋の中心点データ
   String  _currentLabel = AppConfig.mapSections.first.label;
-  String? startNode, goalNode;
+  String? startNode, goalNode; // これらは「部屋名」も入る
   List<String> currentPath = [];
 
   late final StepTracker _tracker;
@@ -61,9 +63,18 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadAllMaps() async {
     for (final s in AppConfig.mapSections) {
-      final data = jsonDecode(await rootBundle.loadString(s.path)) as Map<String, dynamic>;
-      data.remove('_editorData'); // エディタ用のメタデータを破棄（クラッシュ防止とメモリ解放）
-      _maps[s.label] = data;
+      final String content = await rootBundle.loadString(s.path);
+      final fullData = jsonDecode(content) as Map<String, dynamic>;
+      
+      if (fullData.containsKey('_editorData')) {
+        final editorData = fullData['_editorData'] as Map<String, dynamic>;
+        _cells[s.label] = (editorData['cells'] as List<dynamic>?) ?? [];
+        _rooms[s.label] = (editorData['rooms'] as List<dynamic>?) ?? [];
+      }
+      
+      final nodes = Map<String, dynamic>.from(fullData);
+      nodes.remove('_editorData');
+      _nodes[s.label] = nodes;
     }
     setState(() {});
   }
@@ -72,49 +83,66 @@ class _MapScreenState extends State<MapScreen> {
     try { final u = Uri.base; if (u.queryParameters.containsKey('start')) _onQRScanned(u.queryParameters['start']!); } catch (_) {}
   }
 
-  Map<String, dynamic> get _cn => _maps[_currentLabel] ?? {};
+  Map<String, dynamic> get _cn => _nodes[_currentLabel] ?? {};
+  List<dynamic> get _cc => _cells[_currentLabel] ?? [];
+  List<dynamic> get _cr => _rooms[_currentLabel] ?? [];
 
   String? _labelOf(String? n) {
     if (n == null) return null;
-    for (final e in _maps.entries) { if (e.value.containsKey(n)) return e.key; }
+    for (final e in _nodes.entries) { 
+      if (e.value.containsKey(n)) return e.key; 
+      for (final node in e.value.values) {
+        if (node is Map && node['name'] == n) return e.key;
+      }
+    }
+    return null;
+  }
+
+  String? _findIdByName(String name, String label) {
+    final nodes = _nodes[label];
+    if (nodes == null) return null;
+    if (nodes.containsKey(name)) return name;
+    for (final e in nodes.entries) {
+      if (e.value is Map && e.value['name'] == name) return e.key;
+    }
     return null;
   }
 
   String? _findMatchingStairs(String fromLabel, String toLabel) {
     final fromStairs = <String>{};
-    _maps[fromLabel]?.forEach((k, v) {
-      if (v['isStairs'] == true && v['name'] != null) fromStairs.add(v['name']);
+    _nodes[fromLabel]?.forEach((k, v) {
+      if (v is Map && v['isStairs'] == true && v['name'] != null) fromStairs.add(v['name']);
     });
 
     String? matchingStairsName;
-    _maps[toLabel]?.forEach((k, v) {
-      if (v['isStairs'] == true && v['name'] != null && fromStairs.contains(v['name'])) matchingStairsName = v['name'];
+    _nodes[toLabel]?.forEach((k, v) {
+      if (v is Map && v['isStairs'] == true && v['name'] != null && fromStairs.contains(v['name'])) matchingStairsName = v['name'];
     });
 
     if (matchingStairsName != null) {
-       for (final e in (_maps[fromLabel] ?? {}).entries) {
-         if (e.value['isStairs'] == true && e.value['name'] == matchingStairsName) return e.key;
+       for (final e in (_nodes[fromLabel] ?? {}).entries) {
+         if (e.value is Map && e.value['isStairs'] == true && e.value['name'] == matchingStairsName) return e.key;
        }
     }
 
-    for (final e in (_maps[fromLabel] ?? {}).entries) {
-      if (e.value['isStairs'] == true || e.key.toLowerCase() == 'stairs') return e.key;
+    for (final e in (_nodes[fromLabel] ?? {}).entries) {
+      if (e.value is Map && (e.value['isStairs'] == true || e.key.toLowerCase() == 'stairs')) return e.key;
     }
     return null;
   }
 
   String? _connectorTo(String fromLabel, String toLabel) {
-    for (final e in (_maps[fromLabel] ?? {}).entries) {
-      if (e.value['isConnector'] == true && e.value['connectsToMap'] == toLabel) return e.key;
+    for (final e in (_nodes[fromLabel] ?? {}).entries) {
+      if (e.value is Map && e.value['isConnector'] == true && e.value['connectsToMap'] == toLabel) return e.key;
     }
     return null;
   }
 
   List<String> _allDestinations() {
     final d = <String>[];
-    for (final nodes in _maps.values) {
+    for (final nodes in _nodes.values) {
       nodes.forEach((k, v) {
-        if (!k.startsWith('node_') && v['isStairs'] != true && v['isConnector'] != true) d.add(k);
+        if (v is Map && v['name'] != null && v['isStairs'] != true && v['isConnector'] != true) d.add(v['name']!);
       });
     }
     return d.toSet().toList();
@@ -122,26 +150,75 @@ class _MapScreenState extends State<MapScreen> {
 
   void _updatePath() {
     currentPath.clear(); _passed.clear(); _nextGate = null;
-    if (startNode == null || goalNode == null) { setState(() {}); return; }
-    final sL = _labelOf(startNode)!, gL = _labelOf(goalNode)!;
+    if (goalNode == null) { setState(() {}); return; }
+    
+    if (startNode == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('出発地が設定されていません。QRコードをスキャンしてください。'),
+        backgroundColor: Colors.orange,
+      ));
+      setState(() {});
+      return;
+    }
+
+    final sL = _labelOf(startNode);
+    final gL = _labelOf(goalNode);
+    
+    if (sL == null || gL == null) {
+      if (goalNode != null) _showError('場所の名前を特定できませんでした ($goalNode)');
+      return;
+    }
+
+    final sId = _findIdByName(startNode!, sL);
+    final gId = _findIdByName(goalNode!, gL);
+    if (sId == null || gId == null) return;
+
+    debugPrint('Calculating Path: $sId ($sL) -> $gId ($gL) | Currently on: $_currentLabel');
 
     if (sL == gL) {
-      if (_currentLabel == sL) currentPath = RouteCalculator.dijkstra(startNode!, goalNode!, _cn);
-    } else {
       if (_currentLabel == sL) {
-        final conn = _connectorTo(sL, gL) ?? _findMatchingStairs(sL, gL);
-        if (conn != null) currentPath = RouteCalculator.dijkstra(startNode!, conn, _cn);
-      } else if (_currentLabel == gL) {
-        final conn = _connectorTo(gL, sL) ?? _findMatchingStairs(gL, sL);
-        if (conn != null) currentPath = RouteCalculator.dijkstra(conn, goalNode!, _cn);
+        currentPath = RouteCalculator.dijkstra(sId, gId, _cn);
+        if (currentPath.isNotEmpty) _showInfo('目的地までの経路を表示しました');
+        else _showError('経路が見つかりませんでした');
+      }
+    } else {
+      final sections = AppConfig.mapSections;
+      final sIdx = sections.indexWhere((s) => s.label == sL);
+      final gIdx = sections.indexWhere((s) => s.label == gL);
+      final cIdx = sections.indexWhere((s) => s.label == _currentLabel);
+      if (cIdx == -1) return;
+
+      if (cIdx == gIdx) {
+        final prevFloorLabel = sections[gIdx + (sIdx > gIdx ? 1 : -1)].label;
+        final conn = _connectorTo(_currentLabel, prevFloorLabel) ?? _findMatchingStairs(_currentLabel, prevFloorLabel);
+        if (conn != null) {
+          currentPath = RouteCalculator.dijkstra(conn, gId, _cn);
+          if (currentPath.isNotEmpty) _showInfo('目的地への経路を表示しました');
+        }
+      } else {
+        final direction = (gIdx > cIdx ? 1 : -1);
+        final nextLabel = sections[cIdx + direction].label;
+        final conn = _connectorTo(_currentLabel, nextLabel) ?? _findMatchingStairs(_currentLabel, nextLabel);
+        if (conn != null) {
+          final incomingDir = (sIdx > cIdx ? 1 : -1);
+          final prevLabel = (cIdx + incomingDir >= 0 && cIdx + incomingDir < sections.length) ? sections[cIdx + incomingDir].label : null;
+          final sEntry = (_currentLabel == sL) ? sId : (prevLabel != null ? (_connectorTo(_currentLabel, prevLabel) ?? _findMatchingStairs(_currentLabel, prevLabel)) : null);
+          if (sEntry != null) {
+            currentPath = RouteCalculator.dijkstra(sEntry, conn, _cn);
+            if (currentPath.isNotEmpty) _showInfo('$nextLabel 階への案内を開始します');
+          }
+        }
       }
     }
 
     _traveled = 0; 
     if (currentPath.isNotEmpty) {
+      debugPrint('Path found: ${currentPath.length} nodes');
       _tracker.startTracking(currentPath, _cn);
       _tracker.setGates();
       _nextGate = _tracker.nextGate;
+    } else {
+      debugPrint('No path found between $startNode and $goalNode');
     }
     setState(() {});
   }
@@ -151,34 +228,25 @@ class _MapScreenState extends State<MapScreen> {
     final double mapX = localPos.dx;
     final double mapY = localPos.dy;
 
-    String? closestNode;
+    String? closestName;
     double minDist = AppConfig.waypointRadiusPx;
 
     _cn.forEach((k, v) {
-      if (k.startsWith('node_')) {
-        return;
-      }
-      final dx = (v['x'] as num).toDouble() - mapX;
-      final dy = (v['y'] as num).toDouble() - mapY;
+      if (v is! Map || v['name'] == null) return;
+      final x = (v['x'] as num?)?.toDouble() ?? 0;
+      final y = (v['y'] as num?)?.toDouble() ?? 0;
+      final dx = (x + 5) - mapX;
+      final dy = (y + 5) - mapY;
       final d = sqrt(dx * dx + dy * dy);
       if (d < minDist) {
         minDist = d;
-        closestNode = k;
+        closestName = v['name'] as String?;
       }
     });
 
-    if (closestNode != null) {
-      debugPrint('Closest destination found: $closestNode');
-      setState(() {
-        goalNode = closestNode;
-        _updatePath();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('目的地を「$closestNode」に設定しました'),
-        duration: const Duration(seconds: 1),
-      ));
-    } else {
-      debugPrint('No destination node near the tap point.');
+    if (closestName != null) {
+      setState(() { goalNode = closestName; _updatePath(); });
+      _showInfo('目的地を「$closestName」に設定しました');
     }
   }
 
@@ -194,11 +262,29 @@ class _MapScreenState extends State<MapScreen> {
       ..scale(sc);
   }
 
-  void _focusNode(String id) {
-    if (_cn.containsKey(id)) _centerOn(Offset((_cn[id]['x'] as num).toDouble(), (_cn[id]['y'] as num).toDouble()));
+  void _focusNode(String idOrName) {
+    final id = _findIdByName(idOrName, _currentLabel);
+    if (id != null) {
+      final n = _cn[id];
+      if (n is Map) {
+        final x = (n['x'] as num?)?.toDouble();
+        final y = (n['y'] as num?)?.toDouble();
+        if (x != null && y != null) _centerOn(Offset(x + 5, y + 5));
+      }
+    }
   }
 
   // ─── アクション ───────────────────────────────────────────────
+
+  void _showInfo(String msg) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
 
   void _onQRScanned(String data) {
     final label = _labelOf(data);
@@ -283,10 +369,10 @@ class _MapScreenState extends State<MapScreen> {
       ),
       body: Column(children: [
         // マップ切替チップ（マップが2つ以上のとき）
-        if (_maps.length > 1)
+        if (_nodes.length > 1)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Row(children: _maps.keys.map((label) => Padding(
+            child: Row(children: _nodes.keys.map((label) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: ChoiceChip(
                 label: Text(label), selected: _currentLabel == label,
@@ -311,19 +397,23 @@ class _MapScreenState extends State<MapScreen> {
           ),
 
         // 階段・接続点ボタン
-        if (sF != null && gF != null && sF != gF && _currentLabel == sF && destLabel == null)
-          () {
+        if (sF != null && gF != null && sF != gF && _currentLabel != gF && destLabel == null)
+          (() {
+            final sections = AppConfig.mapSections;
+            final cIdx = sections.indexWhere((s) => s.label == _currentLabel);
+            final gIdx = sections.indexWhere((s) => s.label == gF);
+            if (cIdx == -1 || gIdx == -1) return const SizedBox.shrink();
+            
+            final nextLabel = sections[cIdx + (gIdx > cIdx ? 1 : -1)].label;
             bool hasMatchingStairs = false;
             final fStairs = <String>{};
-            _maps[sF]?.forEach((k, v) { if (v['isStairs'] == true && v['name'] != null) fStairs.add(v['name']); });
-            _maps[gF]?.forEach((k, v) { if (v['isStairs'] == true && v['name'] != null && fStairs.contains(v['name'])) hasMatchingStairs = true; });
+            _nodes[_currentLabel]?.forEach((k, v) { if (v is Map && v['isStairs'] == true && v['name'] != null) fStairs.add(v['name']); });
+            _nodes[nextLabel]?.forEach((k, v) { if (v is Map && v['isStairs'] == true && v['name'] != null && fStairs.contains(v['name'])) hasMatchingStairs = true; });
 
-            return _sectionButton(hasMatchingStairs ? '階段がつながっています → $gF へ' : '階段に着いたら → $gF へ', Colors.green, Icons.directions_walk, () {
-              setState(() { _currentLabel = gF; _updatePath(); });
-              final s = _findMatchingStairs(gF, sF);
-              if (s != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(s));
+            return _sectionButton(hasMatchingStairs ? '階段がつながっています → $nextLabel へ' : '階段に着いたら → $nextLabel へ', Colors.green, Icons.directions_walk, () {
+              setState(() { _currentLabel = nextLabel; _updatePath(); });
             });
-          }(),
+          })(),
         if (destLabel != null)
           _sectionButton('接続点に到達 → $destLabel へ進む', Colors.deepPurple, Icons.sync_alt, () {
             final conn = _cn[currentPath.last];
@@ -362,14 +452,17 @@ class _MapScreenState extends State<MapScreen> {
                     )
                   : CustomPaint(
                       size: const Size(AppConfig.mapCanvasSize, AppConfig.mapCanvasSize),
-                      painter: MapPainter(
-                        nodes: _cn,
-                        path: currentPath,
-                        startNode: startNode,
-                        goalNode: goalNode,
-                        estimatedPosition: _estPos,
-                        headingDeg: _heading,
-                      ),
+                          painter: MapPainter(
+                            nodes: _cn,
+                            cells: _cc,
+                            rooms: _cr,
+                            path: currentPath,
+                            startNode: startNode,
+                            goalNode: goalNode,
+                            currentLabel: _currentLabel,
+                            estimatedPosition: _estPos,
+                            headingDeg: _heading,
+                          ),
                     ),
             ),
           ),
@@ -390,7 +483,7 @@ class _MapScreenState extends State<MapScreen> {
           FloatingActionButton.extended(
             heroTag: 'floor',
             onPressed: () {
-              final labels = _maps.keys.toList();
+              final labels = _nodes.keys.toList();
               setState(() { _currentLabel = labels[(labels.indexOf(_currentLabel)+1) % labels.length]; _updatePath(); });
             },
             label: Text('$_currentLabel (切替)'), icon: const Icon(Icons.layers), backgroundColor: Colors.white,
@@ -410,27 +503,47 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _showDestinationPicker() {
+    String filter = '';
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('目的地を選択', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('目的地検索', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: '部屋名や番号を入力...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => setLocalState(() => filter = v),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  children: _allDestinations()
+                    .where((v) => v.toLowerCase().contains(filter.toLowerCase()))
+                    .map((v) => ListTile(
+                      title: Text(v),
+                      onTap: () {
+                        setState(() { goalNode = v; _updatePath(); });
+                        Navigator.pop(ctx);
+                        if (startNode != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(startNode!));
+                      },
+                    )).toList(),
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: ListView(
-              children: _allDestinations().map((v) => ListTile(
-                title: Text(v),
-                onTap: () {
-                  setState(() { goalNode = v; _updatePath(); });
-                  Navigator.pop(ctx);
-                  if (startNode != null) WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(startNode!));
-                },
-              )).toList(),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

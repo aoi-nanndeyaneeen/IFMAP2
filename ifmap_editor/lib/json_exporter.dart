@@ -34,34 +34,30 @@ class JsonExporter {
         for (int x = 0; x < AppConfig.cols; x++) {
           final cell = grid[y][x];
           if (!cell.isWalkable) continue;
-          final id     = cell.name ?? 'node_$y-$x';
-          final edges  = <String>[];
-          
-          final dirs = [
-            [-1, 0, 'top'],
-            [1, 0, 'bottom'],
-            [0, -1, 'left'],
-            [0, 1, 'right']
-          ];
-          for (final d in dirs) {
-            final dy = d[0] as int, dx = d[1] as int, dir = d[2] as String;
-            final ny = y + dy, nx = x + dx;
-            
-            if (dir == 'top' && cell.wallTop) continue;
-            if (dir == 'bottom' && cell.wallBottom) continue;
-            if (dir == 'left' && cell.wallLeft) continue;
-            if (dir == 'right' && cell.wallRight) continue;
+            if (dir == 'top' && cell.wallTop && !cell.doorTop) continue;
+            if (dir == 'bottom' && cell.wallBottom && !cell.doorBottom) continue;
+            if (dir == 'left' && cell.wallLeft && !cell.doorLeft) continue;
+            if (dir == 'right' && cell.wallRight && !cell.doorRight) continue;
 
             if (ny >= 0 && ny < AppConfig.rows && nx >= 0 && nx < AppConfig.cols && grid[ny][nx].isWalkable) {
-              edges.add(grid[ny][nx].name ?? 'node_$ny-$nx');
+              // 隣接セルに壁がある場合もチェック（双方向の壁対応）
+              final nCell = grid[ny][nx];
+              if (dir == 'top' && nCell.wallBottom && !nCell.doorBottom) continue;
+              if (dir == 'bottom' && nCell.wallTop && !nCell.doorTop) continue;
+              if (dir == 'left' && nCell.wallRight && !nCell.doorRight) continue;
+              if (dir == 'right' && nCell.wallLeft && !nCell.doorLeft) continue;
+
+              edges.add('node_$ny-$nx');
             }
           }
           
-          // Original node data generation
-          nodes[id] = {
+          // 全てのノードを node_y-x 形式で保存し、名前は属性として持つ
+          final nodeKey = 'node_$y-$x';
+          nodes[nodeKey] = {
             'x': x * AppConfig.pxPerCell,
             'y': y * AppConfig.pxPerCell,
             'edges': edges,
+            if (cell.name != null) 'name': cell.name,
             if (cell.type == 4) 'isStairs':   true,
             if (cell.type == 5) 'isConnector': true,
             if (cell.type == 5 && cell.connectsToMap  != null) 'connectsToMap':  cell.connectsToMap,
@@ -91,6 +87,28 @@ class JsonExporter {
           if (c.doorRight) 'doorRight': true,
         }).toList(),
       };
+
+      // 部屋の中心点を計算して追加
+      final roomCoords = <String, List<Offset>>{};
+      for (final row in grid) {
+        for (final c in row) {
+          if (c.name != null) {
+            roomCoords.putIfAbsent(c.name!, () => []).add(Offset(c.x.toDouble(), c.y.toDouble()));
+          }
+        }
+      }
+      final roomSummary = <Map<String, dynamic>>[];
+      roomCoords.forEach((name, points) {
+        double avgX = points.map((p) => p.dx).reduce((a, b) => a + b) / points.length;
+        double avgY = points.map((p) => p.dy).reduce((a, b) => a + b) / points.length;
+        roomSummary.add({
+          'name': name,
+          'centerX': avgX * AppConfig.pxPerCell,
+          'centerY': avgY * AppConfig.pxPerCell,
+        });
+      });
+      editorData['rooms'] = roomSummary;
+      
       nodes['_editorData'] = editorData;
 
       // JSON文字列の生成 (圧縮のためインデントなし)

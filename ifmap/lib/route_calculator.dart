@@ -26,6 +26,7 @@ class RouteCalculator {
 
       if (currentNode == goal) break;
 
+      if (nodes[currentNode] is! Map || nodes[currentNode]['edges'] == null) continue;
       for (String neighbor in nodes[currentNode]['edges']) {
         if (!unvisitedNodes.contains(neighbor)) continue;
 
