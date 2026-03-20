@@ -26,6 +26,7 @@ class _MapScreenState extends State<MapScreen> {
   final Map<String, List<dynamic>> _rooms = {}; // 部屋の中心点データ
   String  _currentLabel = AppConfig.mapSections.first.label;
   String? startNode, goalNode; // これらは「部屋名」も入る
+  Offset? _goalCenter; // 目的地の部屋中心座標（マーカー表示用）
   List<String> currentPath = [];
 
   late final StepTracker _tracker;
@@ -138,19 +139,39 @@ class _MapScreenState extends State<MapScreen> {
     return null;
   }
 
-  List<String> _allDestinations() {
+  List<String> _allDestinations({String? floorLabel}) {
     final d = <String>[];
-    for (final nodes in _nodes.values) {
-      nodes.forEach((k, v) {
+    for (final entry in _nodes.entries) {
+      if (floorLabel != null && entry.key != floorLabel) continue;
+      entry.value.forEach((k, v) {
         if (v is Map && v['name'] != null && v['isStairs'] != true && v['isConnector'] != true) d.add(v['name']!);
       });
     }
     return d.toSet().toList();
   }
 
+  /// 目的地名から対応する部屋中心座標を返す
+  Offset? _findRoomCenter(String? roomName) {
+    if (roomName == null) return null;
+    final gL = _labelOf(roomName);
+    if (gL == null) return null;
+    for (final room in (_rooms[gL] ?? [])) {
+      if (room is Map && room['name'] == roomName) {
+        final cx = (room['centerX'] as num?)?.toDouble();
+        final cy = (room['centerY'] as num?)?.toDouble();
+        if (cx != null && cy != null) return Offset(cx, cy);
+      }
+    }
+    return null;
+  }
+
   void _updatePath() {
     currentPath.clear(); _passed.clear(); _nextGate = null;
-    if (goalNode == null) { setState(() {}); return; }
+    // 目的地の部屋中心を取得
+    _goalCenter = _findRoomCenter(goalNode);
+    if (goalNode != null) {
+      _followMode = true; // 自動追従開始
+    }
     
     if (startNode == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -171,7 +192,10 @@ class _MapScreenState extends State<MapScreen> {
 
     final sId = _findIdByName(startNode!, sL);
     final gId = _findIdByName(goalNode!, gL);
-    if (sId == null || gId == null) return;
+    if (sId == null || gId == null) {
+      _showError('場所に対応するノードが見つかりません: ${startNode ?? ""}/${goalNode ?? ""}');
+      return;
+    }
 
     debugPrint('Calculating Path: $sId ($sL) -> $gId ($gL) | Currently on: $_currentLabel');
 
@@ -229,24 +253,25 @@ class _MapScreenState extends State<MapScreen> {
     final double mapY = localPos.dy;
 
     String? closestName;
-    double minDist = AppConfig.waypointRadiusPx;
+    double minDist = 30.0; // 30px 以内ならヒットとする
 
     _cn.forEach((k, v) {
       if (v is! Map || v['name'] == null) return;
-      final x = (v['x'] as num?)?.toDouble() ?? 0;
-      final y = (v['y'] as num?)?.toDouble() ?? 0;
-      final dx = (x + 5) - mapX;
-      final dy = (y + 5) - mapY;
-      final d = sqrt(dx * dx + dy * dy);
-      if (d < minDist) {
-        minDist = d;
+      if (v['isStairs'] == true || v['isConnector'] == true) return;
+
+      final x = (v['x'] as num).toDouble() + 5.0; // セル中心で判定
+      final y = (v['y'] as num).toDouble() + 5.0;
+      final dist = sqrt(pow(x - mapX, 2) + pow(y - mapY, 2));
+
+      if (dist < minDist) {
+        minDist = dist;
         closestName = v['name'] as String?;
       }
     });
 
     if (closestName != null) {
-      setState(() { goalNode = closestName; _updatePath(); });
       _showInfo('目的地を「$closestName」に設定しました');
+      setState(() { goalNode = closestName; _updatePath(); });
     }
   }
 
@@ -269,7 +294,7 @@ class _MapScreenState extends State<MapScreen> {
       if (n is Map) {
         final x = (n['x'] as num?)?.toDouble();
         final y = (n['y'] as num?)?.toDouble();
-        if (x != null && y != null) _centerOn(Offset(x + 5, y + 5));
+        if (x != null && y != null) _centerOn(Offset(x, y));
       }
     }
   }
@@ -335,7 +360,7 @@ class _MapScreenState extends State<MapScreen> {
       goalNode != null &&
       _labelOf(goalNode) == _currentLabel && // 現在フロアの目的地のみ
       _tracker.totalRoutePx > 0 &&
-      _traveled >= _tracker.totalRoutePx * 0.85;
+      _tracker.traveledPx >= _tracker.totalRoutePx * 0.85;
 
   String? get _connectorDestLabel {
     if (currentPath.isEmpty) return null;
@@ -428,7 +453,16 @@ class _MapScreenState extends State<MapScreen> {
         if (currentPath.isNotEmpty)
           WaypointPanel(
             orderedGates: _tracker.orderedGates, passed: _passed, nextGate: _nextGate,
-            onConfirm: (key) { _passed.add(key); _tracker.confirmGate(key); setState(() {}); },
+            onConfirm: (key) { 
+              _passed.add(key); 
+              _tracker.confirmGate(key);
+              
+              // 改善: 目的地に入るボタンが押されたらそのまま到着とする
+              if (goalNode != null && _tracker.nextGate == null && _nearGoal) {
+                 _onArrived();
+              }
+              setState(() {}); 
+            },
             onArrived: _nearGoal ? _onArrived : null,
           ),
 
@@ -456,12 +490,14 @@ class _MapScreenState extends State<MapScreen> {
                             nodes: _cn,
                             cells: _cc,
                             rooms: _cr,
-                            path: currentPath,
+                            path: (startNode != null && _labelOf(startNode) == _currentLabel) ? currentPath : [],
                             startNode: startNode,
                             goalNode: goalNode,
+                            goalCenter: _goalCenter,
                             currentLabel: _currentLabel,
                             estimatedPosition: _estPos,
                             headingDeg: _heading,
+                            showUserDot: startNode != null && _labelOf(startNode) == _currentLabel,
                           ),
                     ),
             ),
@@ -476,7 +512,16 @@ class _MapScreenState extends State<MapScreen> {
               heroTag: 'follow', mini: true,
               backgroundColor: _followMode ? Colors.cyan.shade600 : Colors.white,
               foregroundColor: _followMode ? Colors.white : Colors.grey.shade700,
-              onPressed: () { setState(() => _followMode = !_followMode); if (_followMode && _estPos != null) _centerOn(_estPos!); },
+              onPressed: () { 
+                if (!_followMode) {
+                  final sFloor = _labelOf(startNode);
+                  if (sFloor != null && sFloor != _currentLabel) {
+                    setState(() { _currentLabel = sFloor; _updatePath(); });
+                  }
+                }
+                setState(() => _followMode = !_followMode); 
+                if (_followMode && _estPos != null) _centerOn(_estPos!); 
+              },
               child: Icon(_followMode ? Icons.gps_fixed : Icons.gps_not_fixed),
             ),
           const SizedBox(height: 8),
@@ -529,8 +574,13 @@ class _MapScreenState extends State<MapScreen> {
               ),
               Expanded(
                 child: ListView(
-                  children: _allDestinations()
-                    .where((v) => v.toLowerCase().contains(filter.toLowerCase()))
+                  children: (() {
+                    final currentRoomName = _cn[startNode]?['name'] as String?;
+                    final list = (filter.isEmpty 
+                        ? _allDestinations(floorLabel: _currentLabel) 
+                        : _allDestinations());
+                    return list.toSet().where((v) => v != currentRoomName && v.toLowerCase().contains(filter.toLowerCase())).toList();
+                  })()
                     .map((v) => ListTile(
                       title: Text(v),
                       onTap: () {

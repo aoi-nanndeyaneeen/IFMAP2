@@ -144,7 +144,7 @@ class InputHandler {
   // ───────────────────── ポインタ処理 ──────────────────────
   void _applyMove(int y, int x, int buttons, Offset local, double cs) {
     final ab = _activeBrush;
-    if (ab == 6) return;
+    // 屋外フィールド(type 6)は灎りツール不要
 
     if (ab == 7 || ab == 8) {
       final vx = (local.dx / cs).round().clamp(0, AppConfig.cols);
@@ -166,8 +166,12 @@ class InputHandler {
       ctrl.notify(); return;
     }
 
-    if (isRightClickEraser || ctrl.drawMode == 'stroke') {
+    if (isRightClickEraser || ctrl.drawMode == 'stroke' || ctrl.fillMode) {
       currentStrokeCells.add(ctrl.grid[y][x]);
+      // 塗りモード: 空白セルのみ塗る
+      if (ctrl.fillMode && ctrl.grid[y][x].type != 0) {
+        ctrl.notify(); return;
+      }
       ctrl.grid[y][x].type = ab;
       if (ab == 0) _eraseCell(y, x);
       ctrl.notify();
@@ -209,7 +213,7 @@ class InputHandler {
     isRightClickEraser = buttons == 2;
     _startEdgePan();
     final ab = _activeBrush;
-    if (ab == 6) return;
+    // 屋外フィールド(type 6)は灎りツール不要
     ctrl.saveHistory();
     currentStrokeCells.clear();
 
@@ -237,8 +241,12 @@ class InputHandler {
       }
     }
 
-    if (isRightClickEraser || ctrl.drawMode == 'stroke') {
+    if (isRightClickEraser || (ctrl.drawMode == 'stroke' || ctrl.fillMode) && ctrl.drawMode != 'rect') {
       currentStrokeCells.add(ctrl.grid[y][x]);
+      // 塗りモード: 空白(type 0)のみ変更
+      if (ctrl.fillMode && ctrl.grid[y][x].type != 0) {
+        ctrl.notify(); return;
+      }
       ctrl.grid[y][x].type = ab;
       if (ab == 0) _eraseCell(y, x);
       ctrl.notify();
@@ -266,7 +274,7 @@ class InputHandler {
     if (ab == 7 || ab == 8) {
       singleClickVx = null; singleClickVy = null; _scratchpad.clear(); return;
     }
-    if (ab == 6) return;
+    if (ab == 6) { ctrl.notify(); return; } // 屋外フィールドは詳細設定不要
 
     if (!isRightClickEraser && ctrl.drawMode == 'rect') {
       _applyRectFill(ab);
@@ -316,6 +324,8 @@ class InputHandler {
     final mnY = math.min(dragStartY!, dragCurrentY!), mxY = math.max(dragStartY!, dragCurrentY!);
     for (int yy = mnY; yy <= mxY; yy++) {
       for (int xx = mnX; xx <= mxX; xx++) {
+        // 塗りモード: 空白のみ上書き
+        if (ctrl.fillMode && ctrl.grid[yy][xx].type != 0) continue;
         currentStrokeCells.add(ctrl.grid[yy][xx]);
         ctrl.grid[yy][xx].type = ab;
         if (ab == 0) _eraseCell(yy, xx);

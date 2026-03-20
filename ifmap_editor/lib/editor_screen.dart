@@ -143,8 +143,8 @@ class _EditorScreenState extends State<EditorScreen> {
           IconButton(icon: const Icon(Icons.zoom_in), color: Colors.white,
             onPressed: _zoomIn, tooltip: '拡大'),
           const Center(
-            child: Text('※手のひらツールで移動\n※スクロールで拡大縮小',
-              style: TextStyle(fontSize: 12), textAlign: TextAlign.center)),
+            child: Text('ホイールクリック+ドラッグで移動\nスクロールで拡大縮小',
+              style: TextStyle(fontSize: 11), textAlign: TextAlign.center)),
           ElevatedButton.icon(
             onPressed: () => JsonImporter.importJson(context, _ctrl),
             icon: const Icon(Icons.upload_file), label: const Text('JSON読込')),
@@ -190,8 +190,10 @@ class _EditorScreenState extends State<EditorScreen> {
                 child: ToolPalette(
                   brushType:      _ctrl.brushType,
                   drawMode:       _ctrl.drawMode,
+                  fillMode:       _ctrl.fillMode,
                   onTypeSelected: _ctrl.setBrushType,
                   onModeSelected: _ctrl.setDrawMode,
+                  onFillToggled:  _ctrl.toggleFillMode,
                 ),
               ),
               const Divider(),

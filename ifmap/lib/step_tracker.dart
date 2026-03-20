@@ -9,9 +9,20 @@ class GateInfo {
   final String id;
   final bool isEnter;
   final bool isDoor;
-  const GateInfo(this.id, {this.isEnter = true, this.isDoor = false});
-  String get key   => isDoor ? '${id}_door' : (isEnter ? '${id}_in' : '${id}_out');
-  String get label => isDoor ? '扉を通る' : (isEnter ? '「$id」に入りました' : '「$id」を出ました');
+  final double? px; // ★ ユニーク性を確保するための累積距離
+  
+  const GateInfo(this.id, {this.isEnter = true, this.isDoor = false, this.px});
+
+  String get key   => isDoor ? '${id}_${px?.toInt()}_door' : (isEnter ? '${id}_${px?.toInt()}_in' : '${id}_${px?.toInt()}_out');
+  
+  String get label {
+    final name = (id == '扉' || id.startsWith('node_')) ? (isDoor ? '扉' : '外') : id;
+    if (isDoor) return '扉を通る';
+    if (name == '建物' && isEnter) return '建物に入る';
+    if (name == '外' && !isEnter) return '外に出る';
+    if (isEnter) return '「$name」に入る';
+    return '「$name」から出る';
+  }
 }
 
 class _Gate {
@@ -90,13 +101,28 @@ class StepTracker {
         String? nameB = nodeB['name'];
 
         // 部屋の出入り判定
-        if (typeA == 3 && typeB == 1) { 
-            if (nameA != null) _tryAdd(GateInfo(nameA, isEnter: false), halfwayPx);
-        } else if (typeA == 1 && typeB == 3) {
-            if (nameB != null) _tryAdd(GateInfo(nameB, isEnter: true), halfwayPx);
+        if (typeA == 3 && typeB != 3) { 
+            if (nameA != null) _tryAdd(GateInfo(nameA, isEnter: false, px: halfwayPx), halfwayPx);
+        } else if (typeA != 3 && typeB == 3) {
+            if (nameB != null) _tryAdd(GateInfo(nameB, isEnter: true, px: halfwayPx), halfwayPx);
         } else if (typeA == 3 && typeB == 3 && nameA != nameB) {
-            if (nameA != null) _tryAdd(GateInfo(nameA, isEnter: false), halfwayPx - 0.1);
-            if (nameB != null) _tryAdd(GateInfo(nameB, isEnter: true), halfwayPx + 0.1);
+            if (nameA != null) _tryAdd(GateInfo(nameA, isEnter: false, px: halfwayPx - 0.1), halfwayPx - 0.1);
+            if (nameB != null) _tryAdd(GateInfo(nameB, isEnter: true, px: halfwayPx + 0.1), halfwayPx + 0.1);
+        }
+        
+        // 屋外（Type 6）の判定。 nodeA['isOutdoor'] は JSON から
+        bool isOutdoorA = typeA == 6 || (nodeA['isOutdoor'] == true);
+        bool isOutdoorB = typeB == 6 || (nodeB['isOutdoor'] == true);
+
+        // 建物内 ↔ 屋外 判定
+        if (!isOutdoorA && isOutdoorB) {
+            // 建物を離れて外へ
+            _tryAdd(GateInfo('外', isEnter: false, px: halfwayPx), halfwayPx);
+        } else if (isOutdoorA && !isOutdoorB) {
+            // 外から建物(通常は通路)へ
+            if (typeB == 1) {
+                _tryAdd(GateInfo('建物', isEnter: true, px: halfwayPx), halfwayPx);
+            }
         }
 
         // 扉の通過判定 (通路と通路の間、もしくは部屋と通路の境界に設置された扉)
@@ -116,9 +142,12 @@ class StepTracker {
             if (nodeA['doorTop'] == true || nodeB['doorBottom'] == true) hasDoor = true;
         }
 
-        // 通路の間にある扉を通る時だけ「扉を通る」を独立して出す（部屋に入りながら扉を通る場合は、部屋に入るボタンを優先する）
-        if (typeA == 1 && typeB == 1 && hasDoor) {
-            _tryAdd(GateInfo('扉', isEnter: true, isDoor: true), halfwayPx);
+        // 扉の通過判定: 両方が通路型（0 or 1）の場合のみ「扉を拜ける」を独立して出す
+        // 部屋入口（typeA==3 or typeB==3）に扉がある場合は、入室/退室イベントに統合される
+        final bool bothCorridor = (typeA != 3 && typeA != 4 && typeA != 5 && !isOutdoorA) &&
+                                   (typeB != 3 && typeB != 4 && typeB != 5 && !isOutdoorB);
+        if (bothCorridor && hasDoor) {
+            _tryAdd(GateInfo('扉', isEnter: true, isDoor: true, px: halfwayPx), halfwayPx);
         }
     }
 

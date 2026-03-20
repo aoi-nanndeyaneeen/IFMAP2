@@ -17,14 +17,15 @@ class AppConfig {
     // MapSection(path: 'assets/home/map_2f.json', label: 'Home_2F'),
     
     // --- NITTC 本棟 ---
-    MapSection(path: 'assets/NITTC/NITTC本棟_1F.json', label: 'NITTC_1F'),
-    MapSection(path: 'assets/NITTC/NITTC本棟_2F.json', label: 'NITTC_2F'),
-    MapSection(path: 'assets/NITTC/NITTC本棟_3F.json', label: 'NITTC_3F'),
+    MapSection(path: 'assets/NITTC/NITTC_1F.json', label: 'NITTC_1F'),
+    MapSection(path: 'assets/NITTC/NITTC_2F.json', label: 'NITTC_2F'),
+    MapSection(path: 'assets/NITTC/NITTC_3F.json', label: 'NITTC_3F'),
   ];
 
   // ── 縮尺（ifmap_editor の config.dart と必ず揃えること） ────────
   // editor側:  1マス = metersPerCell(0.5m), JSON座標 = マス番号 × pxPerCell(10)
   // navigator: 1 JSON-px = metersPerCell ÷ pxPerCell = 0.5 ÷ 10 = 0.05 m
+  static const double pxPerCell    = 10.0;  // 1マスの描画ピクセル数
   static const double metersPerPx  = 0.05;  // 1 JSON-px が表す実距離(m)
   static const double strideMeters = 0.7;   // 平均歩幅(m) ※実測でキャリブレーション
 
@@ -40,7 +41,7 @@ class AppConfig {
   static const double mapNorthDegrees = -90.0;
 
   // ── マップ描画 ─────────────────────────────────────────────────
-  static const double mapCanvasSize     = 600.0; // CustomPaintのサイズ(px)
+  static const double mapCanvasSize     = 2000.0; // CustomPaintのサイズ(px) // マップ全体をカバーできるよう拡張
   static const double focusScale        = 1.8;   // QR後・追従時のズーム倍率
   static const double focusVerticalRatio = 0.5;  // 現在地の縦位置(0=上端, 0.5=中央)
 

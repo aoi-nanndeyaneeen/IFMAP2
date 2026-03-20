@@ -121,7 +121,7 @@ class CanvasArea extends StatelessWidget {
           decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 2)),
           child: InteractiveViewer(
             transformationController: transformController,
-            panEnabled: brushType == 6, // ブラシ6(手のひら)の時だけドラッグ移動
+            panEnabled: false,  // パンは中クリックのみ（Listener内で手動処理）
             scaleEnabled: true,
             trackpadScrollCausesScale: true,
             constrained: false, // 子要素が画面より大きくなるのを許可

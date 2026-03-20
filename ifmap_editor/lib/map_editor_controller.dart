@@ -13,6 +13,7 @@ class MapEditorController extends ChangeNotifier {
 
   int brushType = 7;
   String drawMode = 'stroke';
+  bool fillMode = false; // 塗りモード: trueの時は空白セルのみ塗る
   double wallSensitivity = AppConfig.autoWallSensitivity;
   bool isAnalyzing = false;
 
@@ -133,6 +134,7 @@ class MapEditorController extends ChangeNotifier {
   // ───────────────────────── プロパティ変更 ────────────────
   void setBrushType(int t)        { brushType = t; notifyListeners(); }
   void setDrawMode(String m)      { drawMode  = m; notifyListeners(); }
+  void toggleFillMode()           { fillMode  = !fillMode; notifyListeners(); }
   void setWallSensitivity(double v) { wallSensitivity = v; notifyListeners(); }
   void setIsAnalyzing(bool v)     { isAnalyzing = v; notifyListeners(); }
   void setBgImage(Uint8List b)    { bgImageBytes = b; notifyListeners(); }

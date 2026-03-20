@@ -33,33 +33,46 @@ class JsonExporter {
       for (int y = 0; y < AppConfig.rows; y++) {
         for (int x = 0; x < AppConfig.cols; x++) {
           final cell = grid[y][x];
+          // isWalkableに type 6(屋外)も含まれる。空白(type 0)は絶対に含めない。
           if (!cell.isWalkable) continue;
-            if (dir == 'top' && cell.wallTop && !cell.doorTop) continue;
-            if (dir == 'bottom' && cell.wallBottom && !cell.doorBottom) continue;
-            if (dir == 'left' && cell.wallLeft && !cell.doorLeft) continue;
-            if (dir == 'right' && cell.wallRight && !cell.doorRight) continue;
 
-            if (ny >= 0 && ny < AppConfig.rows && nx >= 0 && nx < AppConfig.cols && grid[ny][nx].isWalkable) {
-              // 隣接セルに壁がある場合もチェック（双方向の壁対応）
+          final id    = 'node_$y-$x';
+          final edges = <String>[];
+
+          final dirs = [
+            [-1, 0, 'top'],
+            [1, 0, 'bottom'],
+            [0, -1, 'left'],
+            [0, 1, 'right']
+          ];
+          for (final d in dirs) {
+            final dy = d[0] as int, dx = d[1] as int, dir = d[2] as String;
+            final ny = y + dy, nx = x + dx;
+
+            // 横方向: 屋外ノード同士または屋外↔建物は壁チェックをスキップ（両端に壁ない）
+            bool isOutdoorCell = cell.type == 6;
+            bool canPassA = isOutdoorCell ? true : (!cell.isWall(dir) || cell.isDoor(dir));
+            if (!canPassA) continue;
+
+            if (ny >= 0 && ny < AppConfig.rows && nx >= 0 && nx < AppConfig.cols) {
               final nCell = grid[ny][nx];
-              if (dir == 'top' && nCell.wallBottom && !nCell.doorBottom) continue;
-              if (dir == 'bottom' && nCell.wallTop && !nCell.doorTop) continue;
-              if (dir == 'left' && nCell.wallRight && !nCell.doorRight) continue;
-              if (dir == 'right' && nCell.wallLeft && !nCell.doorLeft) continue;
-
+              if (!nCell.isWalkable) continue;
+              bool isNeighborOutdoor = nCell.type == 6;
+              // 隣接ノードが屋外マスなら壁チェック不要（屋外に増壁ない）
+              bool canPassB = isNeighborOutdoor ? true : (!nCell.isWall(_opposite(dir)) || nCell.isDoor(_opposite(dir)));
+              if (!canPassB) continue;
               edges.add('node_$ny-$nx');
             }
           }
-          
-          // 全てのノードを node_y-x 形式で保存し、名前は属性として持つ
-          final nodeKey = 'node_$y-$x';
-          nodes[nodeKey] = {
+
+          nodes[id] = {
             'x': x * AppConfig.pxPerCell,
             'y': y * AppConfig.pxPerCell,
             'edges': edges,
             if (cell.name != null) 'name': cell.name,
             if (cell.type == 4) 'isStairs':   true,
             if (cell.type == 5) 'isConnector': true,
+            if (cell.type == 6) 'isOutdoor':   true,
             if (cell.type == 5 && cell.connectsToMap  != null) 'connectsToMap':  cell.connectsToMap,
             if (cell.type == 5 && cell.connectsToNode != null) 'connectsToNode': cell.connectsToNode,
             if (cell.doorTop) 'doorTop': true,
@@ -92,8 +105,12 @@ class JsonExporter {
       final roomCoords = <String, List<Offset>>{};
       for (final row in grid) {
         for (final c in row) {
-          if (c.name != null) {
-            roomCoords.putIfAbsent(c.name!, () => []).add(Offset(c.x.toDouble(), c.y.toDouble()));
+          final name = c.name;
+          if (name != null && name.isNotEmpty) {
+            // 部屋(type 3)だけでなく階段(type 4)もラベル対象に含める
+            if (c.type == 3 || c.type == 4 || c.isWalkable) {
+              roomCoords.putIfAbsent(name, () => []).add(Offset(c.x.toDouble(), c.y.toDouble()));
+            }
           }
         }
       }
@@ -103,8 +120,8 @@ class JsonExporter {
         double avgY = points.map((p) => p.dy).reduce((a, b) => a + b) / points.length;
         roomSummary.add({
           'name': name,
-          'centerX': avgX * AppConfig.pxPerCell,
-          'centerY': avgY * AppConfig.pxPerCell,
+          'centerX': avgX * AppConfig.pxPerCell + (AppConfig.pxPerCell / 2),
+          'centerY': avgY * AppConfig.pxPerCell + (AppConfig.pxPerCell / 2),
         });
       });
       editorData['rooms'] = roomSummary;
@@ -132,4 +149,12 @@ class JsonExporter {
       }
     });
   }
+ 
+  static String _opposite(String dir) => switch (dir) {
+    'top'    => 'bottom',
+    'bottom' => 'top',
+    'left'   => 'right',
+    'right'  => 'left',
+    _        => '',
+  };
 }
