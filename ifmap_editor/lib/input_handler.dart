@@ -45,7 +45,10 @@ class InputHandler {
   // ───────────────────── エッジパン ────────────────────────
   void _startEdgePan() {
     _edgePanTimer?.cancel();
-    _edgePanTimer = Timer.periodic(const Duration(milliseconds: 16), (_) => _checkEdgePan());
+    _edgePanTimer = Timer.periodic(
+      const Duration(milliseconds: 16),
+      (_) => _checkEdgePan(),
+    );
   }
 
   void _stopEdgePan() {
@@ -56,19 +59,25 @@ class InputHandler {
 
   void _checkEdgePan() {
     if (_globalPointer == null) return;
-    final box = canvasViewportKey.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        canvasViewportKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
     final local = box.globalToLocal(_globalPointer!);
     final size = box.size;
     const th = 50.0, sp = 15.0;
     double dx = 0, dy = 0;
-    if (local.dx < th) dx = sp;
-    else if (local.dx > size.width - th) dx = -sp;
-    if (local.dy < th) dy = sp;
-    else if (local.dy > size.height - th) dy = -sp;
+    if (local.dx < th)
+      dx = sp;
+    else if (local.dx > size.width - th)
+      dx = -sp;
+    if (local.dy < th)
+      dy = sp;
+    else if (local.dy > size.height - th)
+      dy = -sp;
     if (dx == 0 && dy == 0) return;
     final m = transformCtrl.value.clone();
-    m[12] += dx; m[13] += dy;
+    m[12] += dx;
+    m[13] += dy;
     transformCtrl.value = m;
     // パン後に現在位置で描画継続
     final gridBox = gridKey.currentContext?.findRenderObject() as RenderBox?;
@@ -87,9 +96,18 @@ class InputHandler {
     final k = '${y}_$x';
     if (_scratchpad.containsKey(k)) return;
     final c = ctrl.grid[y][x];
-    _scratchpad[k] = MapCell(x: x, y: y,
-      wallTop: c.wallTop, wallBottom: c.wallBottom, wallLeft: c.wallLeft, wallRight: c.wallRight,
-      doorTop: c.doorTop, doorBottom: c.doorBottom, doorLeft: c.doorLeft, doorRight: c.doorRight);
+    _scratchpad[k] = MapCell(
+      x: x,
+      y: y,
+      wallTop: c.wallTop,
+      wallBottom: c.wallBottom,
+      wallLeft: c.wallLeft,
+      wallRight: c.wallRight,
+      doorTop: c.doorTop,
+      doorBottom: c.doorBottom,
+      doorLeft: c.doorLeft,
+      doorRight: c.doorRight,
+    );
   }
 
   void _restoreScratchpad() {
@@ -97,10 +115,14 @@ class InputHandler {
       final p = e.key.split('_');
       final y = int.parse(p[0]), x = int.parse(p[1]);
       final bk = e.value, c = ctrl.grid[y][x];
-      c.wallTop = bk.wallTop; c.wallBottom = bk.wallBottom;
-      c.wallLeft = bk.wallLeft; c.wallRight = bk.wallRight;
-      c.doorTop = bk.doorTop; c.doorBottom = bk.doorBottom;
-      c.doorLeft = bk.doorLeft; c.doorRight = bk.doorRight;
+      c.wallTop = bk.wallTop;
+      c.wallBottom = bk.wallBottom;
+      c.wallLeft = bk.wallLeft;
+      c.wallRight = bk.wallRight;
+      c.doorTop = bk.doorTop;
+      c.doorBottom = bk.doorBottom;
+      c.doorLeft = bk.doorLeft;
+      c.doorRight = bk.doorRight;
     }
     _scratchpad.clear();
   }
@@ -111,31 +133,45 @@ class InputHandler {
     if (x1 == x2) {
       final y = math.min(y1, y2);
       if (y >= 0 && y < AppConfig.rows && x1 > 0 && x1 < AppConfig.cols) {
-        _pushScratchpad(y, x1); _pushScratchpad(y, x1 - 1);
+        _pushScratchpad(y, x1);
+        _pushScratchpad(y, x1 - 1);
         if (erase) {
-          g[y][x1].wallLeft = false;   g[y][x1].doorLeft = false;
-          g[y][x1-1].wallRight = false; g[y][x1-1].doorRight = false;
+          g[y][x1].wallLeft = false;
+          g[y][x1].doorLeft = false;
+          g[y][x1 - 1].wallRight = false;
+          g[y][x1 - 1].doorRight = false;
         } else if (door) {
-          g[y][x1].doorLeft = true;   g[y][x1].wallLeft = false;
-          g[y][x1-1].doorRight = true; g[y][x1-1].wallRight = false;
+          g[y][x1].doorLeft = true;
+          g[y][x1].wallLeft = false;
+          g[y][x1 - 1].doorRight = true;
+          g[y][x1 - 1].wallRight = false;
         } else {
-          g[y][x1].wallLeft = true;   g[y][x1].doorLeft = false;
-          g[y][x1-1].wallRight = true; g[y][x1-1].doorRight = false;
+          g[y][x1].wallLeft = true;
+          g[y][x1].doorLeft = false;
+          g[y][x1 - 1].wallRight = true;
+          g[y][x1 - 1].doorRight = false;
         }
       }
     } else {
       final x = math.min(x1, x2);
       if (x >= 0 && x < AppConfig.cols && y1 > 0 && y1 < AppConfig.rows) {
-        _pushScratchpad(y1, x); _pushScratchpad(y1 - 1, x);
+        _pushScratchpad(y1, x);
+        _pushScratchpad(y1 - 1, x);
         if (erase) {
-          g[y1][x].wallTop = false;      g[y1][x].doorTop = false;
-          g[y1-1][x].wallBottom = false;  g[y1-1][x].doorBottom = false;
+          g[y1][x].wallTop = false;
+          g[y1][x].doorTop = false;
+          g[y1 - 1][x].wallBottom = false;
+          g[y1 - 1][x].doorBottom = false;
         } else if (door) {
-          g[y1][x].doorTop = true;       g[y1][x].wallTop = false;
-          g[y1-1][x].doorBottom = true;   g[y1-1][x].wallBottom = false;
+          g[y1][x].doorTop = true;
+          g[y1][x].wallTop = false;
+          g[y1 - 1][x].doorBottom = true;
+          g[y1 - 1][x].wallBottom = false;
         } else {
-          g[y1][x].wallTop = true;       g[y1][x].doorTop = false;
-          g[y1-1][x].wallBottom = true;   g[y1-1][x].doorBottom = false;
+          g[y1][x].wallTop = true;
+          g[y1][x].doorTop = false;
+          g[y1 - 1][x].wallBottom = true;
+          g[y1 - 1][x].doorBottom = false;
         }
       }
     }
@@ -152,64 +188,117 @@ class InputHandler {
       if (singleClickVx != null) {
         _restoreScratchpad();
         if (vx == singleClickVx && vy == singleClickVy) {
-          if (singleEdgeX1 != null) _drawTempEdge(singleEdgeX1!, singleEdgeY1!, singleEdgeX2!, singleEdgeY2!, isRightClickEraser, ab == 8);
+          if (singleEdgeX1 != null)
+            _drawTempEdge(
+              singleEdgeX1!,
+              singleEdgeY1!,
+              singleEdgeX2!,
+              singleEdgeY2!,
+              isRightClickEraser,
+              ab == 8,
+            );
         } else {
           if ((vx - singleClickVx!).abs() > (vy - singleClickVy!).abs()) {
-            final mn = math.min(vx, singleClickVx!), mx = math.max(vx, singleClickVx!);
-            for (int tx = mn; tx < mx; tx++) _drawTempEdge(tx, singleClickVy!, tx+1, singleClickVy!, isRightClickEraser, ab == 8);
+            final mn = math.min(vx, singleClickVx!),
+                mx = math.max(vx, singleClickVx!);
+            for (int tx = mn; tx < mx; tx++)
+              _drawTempEdge(
+                tx,
+                singleClickVy!,
+                tx + 1,
+                singleClickVy!,
+                isRightClickEraser,
+                ab == 8,
+              );
           } else {
-            final mn = math.min(vy, singleClickVy!), mx = math.max(vy, singleClickVy!);
-            for (int ty = mn; ty < mx; ty++) _drawTempEdge(singleClickVx!, ty, singleClickVx!, ty+1, isRightClickEraser, ab == 8);
+            final mn = math.min(vy, singleClickVy!),
+                mx = math.max(vy, singleClickVy!);
+            for (int ty = mn; ty < mx; ty++)
+              _drawTempEdge(
+                singleClickVx!,
+                ty,
+                singleClickVx!,
+                ty + 1,
+                isRightClickEraser,
+                ab == 8,
+              );
           }
         }
       }
-      ctrl.notify(); return;
+      ctrl.notify();
+      return;
     }
 
-    if (isRightClickEraser || ctrl.drawMode == 'stroke' || ctrl.fillMode) {
+    if (isRightClickEraser || ctrl.drawMode == 'stroke') {
       currentStrokeCells.add(ctrl.grid[y][x]);
       // 塗りモード: 空白セルのみ塗る
-      if (ctrl.fillMode && ctrl.grid[y][x].type != 0) {
-        ctrl.notify(); return;
+      if (ctrl.fillMode && ctrl.grid[y][x].type != 0 && ab != 0) {
+        ctrl.notify();
+        return;
       }
       ctrl.grid[y][x].type = ab;
       if (ab == 0) _eraseCell(y, x);
       ctrl.notify();
     } else {
-      if (dragStartX != null) { dragCurrentX = x; dragCurrentY = y; ctrl.notify(); }
+      if (dragStartX != null) {
+        dragCurrentX = x;
+        dragCurrentY = y;
+        ctrl.notify();
+      }
     }
   }
 
   void _eraseCell(int y, int x) {
     final c = ctrl.grid[y][x];
-    c.name = null; c.connectsToMap = null; c.connectsToNode = null;
-    
-    if (y > 0 && currentStrokeCells.contains(ctrl.grid[y-1][x])) { 
-       c.wallTop = false; c.doorTop = false; 
-       ctrl.grid[y-1][x].wallBottom = false; ctrl.grid[y-1][x].doorBottom = false; 
+    c.name = null;
+    c.connectsToMap = null;
+    c.connectsToNode = null;
+
+    if (y > 0 && currentStrokeCells.contains(ctrl.grid[y - 1][x])) {
+      c.wallTop = false;
+      c.doorTop = false;
+      ctrl.grid[y - 1][x].wallBottom = false;
+      ctrl.grid[y - 1][x].doorBottom = false;
     }
-    if (y < AppConfig.rows - 1 && currentStrokeCells.contains(ctrl.grid[y+1][x])) { 
-       c.wallBottom = false; c.doorBottom = false; 
-       ctrl.grid[y+1][x].wallTop = false; ctrl.grid[y+1][x].doorTop = false; 
+    if (y < AppConfig.rows - 1 &&
+        currentStrokeCells.contains(ctrl.grid[y + 1][x])) {
+      c.wallBottom = false;
+      c.doorBottom = false;
+      ctrl.grid[y + 1][x].wallTop = false;
+      ctrl.grid[y + 1][x].doorTop = false;
     }
-    if (x > 0 && currentStrokeCells.contains(ctrl.grid[y][x-1])) { 
-       c.wallLeft = false; c.doorLeft = false; 
-       ctrl.grid[y][x-1].wallRight = false; ctrl.grid[y][x-1].doorRight = false; 
+    if (x > 0 && currentStrokeCells.contains(ctrl.grid[y][x - 1])) {
+      c.wallLeft = false;
+      c.doorLeft = false;
+      ctrl.grid[y][x - 1].wallRight = false;
+      ctrl.grid[y][x - 1].doorRight = false;
     }
-    if (x < AppConfig.cols - 1 && currentStrokeCells.contains(ctrl.grid[y][x+1])) { 
-       c.wallRight = false; c.doorRight = false; 
-       ctrl.grid[y][x+1].wallLeft = false; ctrl.grid[y][x+1].doorLeft = false; 
+    if (x < AppConfig.cols - 1 &&
+        currentStrokeCells.contains(ctrl.grid[y][x + 1])) {
+      c.wallRight = false;
+      c.doorRight = false;
+      ctrl.grid[y][x + 1].wallLeft = false;
+      ctrl.grid[y][x + 1].doorLeft = false;
     }
   }
 
   int get _activeBrush {
-    if (isRightClickEraser && ctrl.brushType != 7 && ctrl.brushType != 8) return 0;
+    if (isRightClickEraser && ctrl.brushType != 7 && ctrl.brushType != 8)
+      return 0;
     return ctrl.brushType;
   }
 
   // ───────────────────── 公開イベント ──────────────────────
-  void onPointerDown(int y, int x, int buttons, Offset local, Offset global, double cs) {
-    _globalPointer = global; _buttons = buttons;
+  void onPointerDown(
+    int y,
+    int x,
+    int buttons,
+    Offset local,
+    Offset global,
+    double cs,
+  ) {
+    _globalPointer = global;
+    _buttons = buttons;
     isRightClickEraser = buttons == 2;
     _startEdgePan();
     final ab = _activeBrush;
@@ -219,72 +308,125 @@ class InputHandler {
 
     if (ab == 7 || ab == 8) {
       final dx = local.dx % cs, dy = local.dy % cs;
-      final cx = (local.dx / cs).floor().clamp(0, AppConfig.cols-1);
-      final cy = (local.dy / cs).floor().clamp(0, AppConfig.rows-1);
-      final dTop = dy, dBottom = cs-dy, dLeft = dx, dRight = cs-dx;
+      final cx = (local.dx / cs).floor().clamp(0, AppConfig.cols - 1);
+      final cy = (local.dy / cs).floor().clamp(0, AppConfig.rows - 1);
+      final dTop = dy, dBottom = cs - dy, dLeft = dx, dRight = cs - dx;
       final minD = math.min(math.min(dTop, dBottom), math.min(dLeft, dRight));
-      if (minD == dTop)    { singleEdgeX1=cx;   singleEdgeY1=cy;   singleEdgeX2=cx+1; singleEdgeY2=cy; }
-      else if (minD==dBottom){ singleEdgeX1=cx; singleEdgeY1=cy+1; singleEdgeX2=cx+1; singleEdgeY2=cy+1; }
-      else if (minD==dLeft)  { singleEdgeX1=cx; singleEdgeY1=cy;   singleEdgeX2=cx;   singleEdgeY2=cy+1; }
-      else                   { singleEdgeX1=cx+1;singleEdgeY1=cy;  singleEdgeX2=cx+1; singleEdgeY2=cy+1; }
-      singleClickVx = (local.dx/cs).round().clamp(0, AppConfig.cols);
-      singleClickVy = (local.dy/cs).round().clamp(0, AppConfig.rows);
+      if (minD == dTop) {
+        singleEdgeX1 = cx;
+        singleEdgeY1 = cy;
+        singleEdgeX2 = cx + 1;
+        singleEdgeY2 = cy;
+      } else if (minD == dBottom) {
+        singleEdgeX1 = cx;
+        singleEdgeY1 = cy + 1;
+        singleEdgeX2 = cx + 1;
+        singleEdgeY2 = cy + 1;
+      } else if (minD == dLeft) {
+        singleEdgeX1 = cx;
+        singleEdgeY1 = cy;
+        singleEdgeX2 = cx;
+        singleEdgeY2 = cy + 1;
+      } else {
+        singleEdgeX1 = cx + 1;
+        singleEdgeY1 = cy;
+        singleEdgeX2 = cx + 1;
+        singleEdgeY2 = cy + 1;
+      }
+      singleClickVx = (local.dx / cs).round().clamp(0, AppConfig.cols);
+      singleClickVy = (local.dy / cs).round().clamp(0, AppConfig.rows);
       _scratchpad.clear();
-      _drawTempEdge(singleEdgeX1!, singleEdgeY1!, singleEdgeX2!, singleEdgeY2!, isRightClickEraser, ab==8);
-      ctrl.notify(); return;
+      _drawTempEdge(
+        singleEdgeX1!,
+        singleEdgeY1!,
+        singleEdgeX2!,
+        singleEdgeY2!,
+        isRightClickEraser,
+        ab == 8,
+      );
+      ctrl.notify();
+      return;
     }
 
     if (ab == 3 || ab == 4 || ab == 5) {
       final c = ctrl.grid[y][x];
       if (c.type == ab && c.name != null) {
-        pendingName = c.name; pendingConnectsToMap = c.connectsToMap; pendingConnectsToNode = c.connectsToNode;
+        pendingName = c.name;
+        pendingConnectsToMap = c.connectsToMap;
+        pendingConnectsToNode = c.connectsToNode;
       }
     }
 
-    if (isRightClickEraser || (ctrl.drawMode == 'stroke' || ctrl.fillMode) && ctrl.drawMode != 'rect') {
+    if (isRightClickEraser || ctrl.drawMode == 'stroke') {
       currentStrokeCells.add(ctrl.grid[y][x]);
       // 塗りモード: 空白(type 0)のみ変更
-      if (ctrl.fillMode && ctrl.grid[y][x].type != 0) {
-        ctrl.notify(); return;
+      if (ctrl.fillMode && ctrl.grid[y][x].type != 0 && ab != 0) {
+        ctrl.notify();
+        return;
       }
       ctrl.grid[y][x].type = ab;
       if (ab == 0) _eraseCell(y, x);
       ctrl.notify();
     } else {
-      dragStartX = x; dragStartY = y; dragCurrentX = x; dragCurrentY = y;
+      dragStartX = x;
+      dragStartY = y;
+      dragCurrentX = x;
+      dragCurrentY = y;
       ctrl.notify();
     }
   }
 
-  void onPointerMove(int y, int x, int buttons, Offset local, Offset global, double cs) {
-    _globalPointer = global; _buttons = buttons;
+  void onPointerMove(
+    int y,
+    int x,
+    int buttons,
+    Offset local,
+    Offset global,
+    double cs,
+  ) {
+    _globalPointer = global;
+    _buttons = buttons;
     _applyMove(y, x, buttons, local, cs);
   }
 
   /// PointerUp 後の非同期処理（名前ダイアログ等）はコールバックで EditorScreen に委譲。
   /// [onNeedNameDialog] : (type, oldName?) -> confirmed name or null
-  /// [onNeedConnectorDialog] : (oldName?) -> ConnectorResult? 
+  /// [onNeedConnectorDialog] : (oldName?) -> ConnectorResult?
   Future<void> onPointerUp({
-    required Future<String?> Function(int type, String? oldName) onNeedNameDialog,
-    required Future<ConnectorDialogResult?> Function(String? oldName) onNeedConnectorDialog,
+    required Future<String?> Function(int type, String? oldName)
+    onNeedNameDialog,
+    required Future<ConnectorDialogResult?> Function(String? oldName)
+    onNeedConnectorDialog,
   }) async {
     _stopEdgePan();
     final ab = _activeBrush;
 
     if (ab == 7 || ab == 8) {
-      singleClickVx = null; singleClickVy = null; _scratchpad.clear(); return;
+      singleClickVx = null;
+      singleClickVy = null;
+      _scratchpad.clear();
+      return;
     }
-    if (ab == 6) { ctrl.notify(); return; } // 屋外フィールドは詳細設定不要
 
     if (!isRightClickEraser && ctrl.drawMode == 'rect') {
       _applyRectFill(ab);
     }
 
-    if (currentStrokeCells.isEmpty) { isRightClickEraser = false; return; }
+    if (ab == 6) {
+      ctrl.notify();
+      return;
+    } // 屋外フィールドは詳細設定不要
+
+    if (currentStrokeCells.isEmpty) {
+      isRightClickEraser = false;
+      return;
+    }
 
     // 名前リセット
     for (final c in currentStrokeCells) {
-      c.name = null; c.connectsToMap = null; c.connectsToNode = null;
+      c.name = null;
+      c.connectsToMap = null;
+      c.connectsToNode = null;
     }
 
     if (ab == 3 || ab == 4) {
@@ -298,18 +440,26 @@ class InputHandler {
     } else if (ab == 5) {
       ConnectorDialogResult? res;
       if (pendingName != null) {
-        res = ConnectorDialogResult(name: pendingName!, connectsToMap: pendingConnectsToMap, connectsToNode: pendingConnectsToNode);
+        res = ConnectorDialogResult(
+          name: pendingName!,
+          connectsToMap: pendingConnectsToMap,
+          connectsToNode: pendingConnectsToNode,
+        );
       } else {
         res = await onNeedConnectorDialog(null);
       }
       if (res != null) {
         for (final c in currentStrokeCells) {
-          c.name = res.name; c.connectsToMap = res.connectsToMap; c.connectsToNode = res.connectsToNode;
+          c.name = res.name;
+          c.connectsToMap = res.connectsToMap;
+          c.connectsToNode = res.connectsToNode;
         }
       } else {
         ctrl.undo();
       }
-      pendingName = null; pendingConnectsToMap = null; pendingConnectsToNode = null;
+      pendingName = null;
+      pendingConnectsToMap = null;
+      pendingConnectsToNode = null;
     }
 
     ctrl.calculateRoomGroups();
@@ -320,8 +470,10 @@ class InputHandler {
 
   void _applyRectFill(int ab) {
     if (dragStartX == null || dragCurrentX == null) return;
-    final mnX = math.min(dragStartX!, dragCurrentX!), mxX = math.max(dragStartX!, dragCurrentX!);
-    final mnY = math.min(dragStartY!, dragCurrentY!), mxY = math.max(dragStartY!, dragCurrentY!);
+    final mnX = math.min(dragStartX!, dragCurrentX!),
+        mxX = math.max(dragStartX!, dragCurrentX!);
+    final mnY = math.min(dragStartY!, dragCurrentY!),
+        mxY = math.max(dragStartY!, dragCurrentY!);
     for (int yy = mnY; yy <= mxY; yy++) {
       for (int xx = mnX; xx <= mxX; xx++) {
         // 塗りモード: 空白のみ上書き
@@ -331,14 +483,21 @@ class InputHandler {
         if (ab == 0) _eraseCell(yy, xx);
       }
     }
-    dragStartX = null; dragStartY = null; dragCurrentX = null; dragCurrentY = null;
+    dragStartX = null;
+    dragStartY = null;
+    dragCurrentX = null;
+    dragCurrentY = null;
     ctrl.notify();
   }
 
   /// brush=9 (名前変更) の処理。EditorScreen から呼ぶ。
-  Future<void> handleRenameClick(int y, int x, {
-    required Future<String?> Function(int type, String? oldName) onNeedNameDialog,
-    required Future<ConnectorDialogResult?> Function(String? oldName) onNeedConnectorDialog,
+  Future<void> handleRenameClick(
+    int y,
+    int x, {
+    required Future<String?> Function(int type, String? oldName)
+    onNeedNameDialog,
+    required Future<ConnectorDialogResult?> Function(String? oldName)
+    onNeedConnectorDialog,
   }) async {
     final c = ctrl.grid[y][x];
     if (c.name == null || (c.type != 3 && c.type != 4 && c.type != 5)) return;
@@ -352,7 +511,9 @@ class InputHandler {
         for (int xx = 0; xx < AppConfig.cols; xx++) {
           final cell = ctrl.grid[yy][xx];
           if (cell.type == 5 && cell.name == oldName) {
-            cell.name = res.name; cell.connectsToMap = res.connectsToMap; cell.connectsToNode = res.connectsToNode;
+            cell.name = res.name;
+            cell.connectsToMap = res.connectsToMap;
+            cell.connectsToNode = res.connectsToNode;
           }
         }
       }
@@ -362,7 +523,8 @@ class InputHandler {
       ctrl.saveHistory();
       for (int yy = 0; yy < AppConfig.rows; yy++) {
         for (int xx = 0; xx < AppConfig.cols; xx++) {
-          if (ctrl.grid[yy][xx].type == type && ctrl.grid[yy][xx].name == oldName) {
+          if (ctrl.grid[yy][xx].type == type &&
+              ctrl.grid[yy][xx].name == oldName) {
             ctrl.grid[yy][xx].name = name;
           }
         }
@@ -378,5 +540,9 @@ class ConnectorDialogResult {
   final String name;
   final String? connectsToMap;
   final String? connectsToNode;
-  const ConnectorDialogResult({required this.name, this.connectsToMap, this.connectsToNode});
+  const ConnectorDialogResult({
+    required this.name,
+    this.connectsToMap,
+    this.connectsToNode,
+  });
 }

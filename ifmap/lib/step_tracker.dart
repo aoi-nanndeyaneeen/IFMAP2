@@ -1,4 +1,8 @@
 // lib/step_tracker.dart
+// ★ 変更点: startTracking に _posCtrl.add(_calcPosition()) を追加
+//   → フロア切替後すぐに新フロアの先頭座標を _estPos に反映する
+//   → これにより showUserDot が true でも _estPos が前フロアの座標のままにならない
+
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -9,7 +13,7 @@ class GateInfo {
   final String id;
   final bool isEnter;
   final bool isDoor;
-  final double? px; // ★ ユニーク性を確保するための累積距離
+  final double? px;
   
   const GateInfo(this.id, {this.isEnter = true, this.isDoor = false, this.px});
 
@@ -27,11 +31,10 @@ class GateInfo {
 
 class _Gate {
   final GateInfo info;
-  final double   px; // ルート累積距離(px)でここに達したら停止
+  final double   px;
   _Gate(this.info, this.px);
 }
 
-/// 加速度センサーで歩数を検出し、ゲート境界で自動停止するトラッカー。
 class StepTracker {
   final double stepLengthPx;
 
@@ -59,13 +62,17 @@ class StepTracker {
 
   StepTracker({required this.stepLengthPx});
 
-  // ─── 公開API ──────────────────────────────────────────────────
-
   void startTracking(List<String> path, Map<String, dynamic> nodes) {
     _sub?.cancel();
     _path = path; _nodes = nodes;
     _traveled = 0; _gates = []; _gateIdx = 0;
     _buildCumDist();
+
+    // ★ FIX (Issue 2): フロア切替直後に新しいパスの先頭座標を即送出する。
+    // これがないと _estPos が前フロアの座標のまま残り、
+    // showUserDot=true でも現在位置が正しい階に表示されない。
+    _posCtrl.add(_calcPosition());
+    _distCtrl.add(_traveled);
 
     _sub = userAccelerometerEventStream(
       samplingPeriod: SensorInterval.normalInterval,
@@ -82,7 +89,19 @@ class StepTracker {
     }, onError: (_) {});
   }
 
-  /// ルート確定後に呼ぶ。経路のトポロジーに基づいて正確な境界(部屋の出入り、扉)でゲートを設定する。
+  void clear() {
+    _sub?.cancel();
+    _path = [];
+    _nodes = {};
+    _cumDist = [];
+    _traveled = 0;
+    _gates = [];
+    _gateIdx = 0;
+    _posCtrl.add(null);
+    _distCtrl.add(0);
+    _gateCtrl.add(null);
+  }
+
   void setGates() {
     _gates = [];
 
@@ -100,7 +119,6 @@ class StepTracker {
         String? nameA = nodeA['name'];
         String? nameB = nodeB['name'];
 
-        // 部屋の出入り判定
         if (typeA == 3 && typeB != 3) { 
             if (nameA != null) _tryAdd(GateInfo(nameA, isEnter: false, px: halfwayPx), halfwayPx);
         } else if (typeA != 3 && typeB == 3) {
@@ -110,40 +128,33 @@ class StepTracker {
             if (nameB != null) _tryAdd(GateInfo(nameB, isEnter: true, px: halfwayPx + 0.1), halfwayPx + 0.1);
         }
         
-        // 屋外（Type 6）の判定。 nodeA['isOutdoor'] は JSON から
         bool isOutdoorA = typeA == 6 || (nodeA['isOutdoor'] == true);
         bool isOutdoorB = typeB == 6 || (nodeB['isOutdoor'] == true);
 
-        // 建物内 ↔ 屋外 判定
         if (!isOutdoorA && isOutdoorB) {
-            // 建物を離れて外へ
             _tryAdd(GateInfo('外', isEnter: false, px: halfwayPx), halfwayPx);
         } else if (isOutdoorA && !isOutdoorB) {
-            // 外から建物(通常は通路)へ
             if (typeB == 1) {
                 _tryAdd(GateInfo('建物', isEnter: true, px: halfwayPx), halfwayPx);
             }
         }
 
-        // 扉の通過判定 (通路と通路の間、もしくは部屋と通路の境界に設置された扉)
         double xA = (nodeA['x'] as num).toDouble();
         double yA = (nodeA['y'] as num).toDouble();
         double xB = (nodeB['x'] as num).toDouble();
         double yB = (nodeB['y'] as num).toDouble();
 
         bool hasDoor = false;
-        if (yB == yA && xB > xA) { // 右へ移動
+        if (yB == yA && xB > xA) {
             if (nodeA['doorRight'] == true || nodeB['doorLeft'] == true) hasDoor = true;
-        } else if (yB == yA && xB < xA) { // 左へ移動
+        } else if (yB == yA && xB < xA) {
             if (nodeA['doorLeft'] == true || nodeB['doorRight'] == true) hasDoor = true;
-        } else if (xB == xA && yB > yA) { // 下へ移動
+        } else if (xB == xA && yB > yA) {
             if (nodeA['doorBottom'] == true || nodeB['doorTop'] == true) hasDoor = true;
-        } else if (xB == xA && yB < yA) { // 上へ移動
+        } else if (xB == xA && yB < yA) {
             if (nodeA['doorTop'] == true || nodeB['doorBottom'] == true) hasDoor = true;
         }
 
-        // 扉の通過判定: 両方が通路型（0 or 1）の場合のみ「扉を拜ける」を独立して出す
-        // 部屋入口（typeA==3 or typeB==3）に扉がある場合は、入室/退室イベントに統合される
         final bool bothCorridor = (typeA != 3 && typeA != 4 && typeA != 5 && !isOutdoorA) &&
                                    (typeB != 3 && typeB != 4 && typeB != 5 && !isOutdoorB);
         if (bothCorridor && hasDoor) {
@@ -170,15 +181,11 @@ class StepTracker {
     _posCtrl.close(); _distCtrl.close(); _gateCtrl.close();
   }
 
-  // ─── 内部処理 ─────────────────────────────────────────────────
-
   void _tryAdd(GateInfo info, double px) {
     final clamped = px.clamp(0.0, totalRoutePx);
     final prevPx  = _gates.isEmpty ? -1.0 : _gates.last.px;
     if (clamped > prevPx) _gates.add(_Gate(info, clamped));
   }
-
-
 
   void _buildCumDist() {
     _cumDist = [0.0];

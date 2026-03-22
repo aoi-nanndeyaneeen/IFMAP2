@@ -79,6 +79,10 @@ class JsonExporter {
             if (cell.doorBottom) 'doorBottom': true,
             if (cell.doorLeft) 'doorLeft': true,
             if (cell.doorRight) 'doorRight': true,
+            if (cell.wallTop) 'wallTop': true,
+            if (cell.wallBottom) 'wallBottom': true,
+            if (cell.wallLeft) 'wallLeft': true,
+            if (cell.wallRight) 'wallRight': true,
           };
         }
       }
