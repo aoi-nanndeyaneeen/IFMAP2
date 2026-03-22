@@ -1,7 +1,7 @@
-// lib/map_screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart'; // compute()
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
@@ -13,6 +13,124 @@ import 'compass_indicator.dart';
 import 'waypoint_panel.dart';
 import 'map_painter.dart';
 import 'qr_scanner_screen.dart';
+
+class _LoadResult {
+  final Map<String, Map<String, dynamic>> nodes;
+  final Map<String, List<dynamic>> cells;
+  final Map<String, List<dynamic>> rooms;
+  _LoadResult(this.nodes, this.cells, this.rooms);
+}
+
+// compute()用ラッパー（トップレベル関数必須）
+_LoadResult _parseAllJson(List<String> contents) {
+  final nodes = <String, Map<String, dynamic>>{};
+  final cells = <String, List<dynamic>>{};
+  final rooms = <String, List<dynamic>>{};
+
+  for (int i = 0; i < AppConfig.mapSections.length; i++) {
+    final label = AppConfig.mapSections[i].label;
+    final fullData = jsonDecode(contents[i]) as Map<String, dynamic>;
+    if (fullData.containsKey('_editorData')) {
+      final ed = fullData['_editorData'] as Map<String, dynamic>;
+      cells[label] = (ed['cells'] as List<dynamic>?) ?? [];
+      rooms[label] = (ed['rooms'] as List<dynamic>?) ?? [];
+    }
+    final n = Map<String, dynamic>.from(fullData)..remove('_editorData');
+    nodes[label] = n;
+  }
+  return _LoadResult(nodes, cells, rooms);
+}
+
+/// compute() で呼ばれるトップレベル関数。
+Map<String, List<String>> _computeAllFloorPaths(Map<String, dynamic> args) {
+  final allNodes  = (args['nodes']    as Map).cast<String, Map<String, dynamic>>();
+  final sections  = (args['sections'] as List).cast<String>();
+  final startId   = args['startId']  as String;
+  final goalId    = args['goalId']   as String;
+  final sL        = args['sL']       as String;
+  final gL        = args['gL']       as String;
+
+  final result = <String, List<String>>{};
+
+  if (sL == gL) {
+    final path = RouteCalculator.dijkstra(startId, goalId, allNodes[sL] ?? {});
+    if (path.isNotEmpty) result[sL] = path;
+    return result;
+  }
+
+  final sIdx = sections.indexOf(sL);
+  final gIdx = sections.indexOf(gL);
+  if (sIdx == -1 || gIdx == -1) return result;
+
+  final direction = gIdx > sIdx ? 1 : -1;
+  String currentEntryId = startId;
+
+  for (int i = sIdx;
+      direction > 0 ? i <= gIdx : i >= gIdx;
+      i += direction) {
+    final floorLabel = sections[i];
+    final nodes = allNodes[floorLabel] ?? {};
+
+    if (i == gIdx) {
+      final path = RouteCalculator.dijkstra(currentEntryId, goalId, nodes);
+      if (path.isNotEmpty) result[floorLabel] = path;
+    } else {
+      final nextFloor = sections[i + direction];
+      // 接続点を探す（connectorTo → findMatchingStairs の順）
+      final exitId = _findConnector(nodes, nextFloor)
+          ?? _findStairs(allNodes[floorLabel] ?? {}, allNodes[nextFloor] ?? {});
+      if (exitId == null) break;
+
+      final path = RouteCalculator.dijkstra(currentEntryId, exitId, nodes);
+      if (path.isNotEmpty) result[floorLabel] = path;
+
+      final nextNodes = allNodes[nextFloor] ?? {};
+      final nextEntry = _findConnector(nextNodes, floorLabel)
+          ?? _findStairs(allNodes[nextFloor] ?? {}, allNodes[floorLabel] ?? {});
+      if (nextEntry == null) break;
+      currentEntryId = nextEntry;
+    }
+  }
+  return result;
+}
+
+/// compute内で使う接続点探索
+String? _findConnector(Map<String, dynamic> nodes, String toLabel) {
+  for (final e in nodes.entries) {
+    if (e.value is Map &&
+        e.value['isConnector'] == true &&
+        e.value['connectsToMap'] == toLabel) return e.key;
+  }
+  return null;
+}
+
+/// compute内で使う階段探索
+String? _findStairs(Map<String, dynamic> fromNodes, Map<String, dynamic> toNodes) {
+  final fromNames = <String>{};
+  for (final v in fromNodes.values) {
+    if (v is Map && v['isStairs'] == true && v['name'] != null) {
+      fromNames.add(v['name'] as String);
+    }
+  }
+  String? matchName;
+  for (final v in toNodes.values) {
+    if (v is Map && v['isStairs'] == true && v['name'] != null &&
+        fromNames.contains(v['name'])) {
+      matchName = v['name'] as String;
+      break;
+    }
+  }
+  if (matchName != null) {
+    for (final e in fromNodes.entries) {
+      if (e.value is Map && e.value['isStairs'] == true &&
+          e.value['name'] == matchName) return e.key;
+    }
+  }
+  for (final e in fromNodes.entries) {
+    if (e.value is Map && e.value['isStairs'] == true) return e.key;
+  }
+  return null;
+}
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -63,27 +181,48 @@ class _MapScreenState extends State<MapScreen> {
   final _tx = TransformationController();
   final _mapKey = GlobalKey();
 
+  // ★ センサー更新をUIから切り離すための ValueNotifier
+  final _posNotifier     = ValueNotifier<Offset?>(null);
+  final _headingNotifier = ValueNotifier<double?>(null);
+
   // ─── lifecycle ────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
     _tracker = StepTracker(stepLengthPx: AppConfig.stepLengthPx);
+
+    // ★ 現在地更新: ValueNotifier に流すだけ（setState不要）
     _tracker.positionStream.listen((p) {
-      setState(() => _estPos = p);
+      _posNotifier.value = p;
+      _estPos = p; // 残距離計算用に保持
       if (_followMode && p != null)
         WidgetsBinding.instance.addPostFrameCallback((_) => _centerOn(p));
     });
-    _tracker.traveledStream.listen((d) => setState(() => _traveled = d));
-    _tracker.nextGateStream.listen((g) => setState(() => _nextGate = g));
-    FlutterCompass.events?.listen((e) {
-      if (e.heading != null) setState(() => _heading = e.heading);
+
+    _tracker.traveledStream.listen((d) {
+      _traveled = d;
+      // 残距離テキストだけ更新（マップ全体のsetStateは不要）
+      if (mounted) setState(() {}); // _remTextのみ依存→最小限
     });
+
+    _tracker.nextGateStream.listen((g) => setState(() => _nextGate = g));
+
+    // ★ コンパス更新: ValueNotifier に流すだけ
+    FlutterCompass.events?.listen((e) {
+      if (e.heading != null) {
+        _headingNotifier.value = e.heading;
+        _heading = e.heading; // compass_indicator用に保持
+      }
+    });
+
     _loadAllMaps().then((_) => _checkUrlParameter());
   }
 
   @override
   void dispose() {
+    _posNotifier.dispose();
+    _headingNotifier.dispose();
     _tracker.dispose();
     super.dispose();
   }
@@ -91,21 +230,16 @@ class _MapScreenState extends State<MapScreen> {
   // ─── データ ──────────────────────────────────────────────────
 
   Future<void> _loadAllMaps() async {
-    for (final s in AppConfig.mapSections) {
-      final String content = await rootBundle.loadString(s.path);
-      final fullData = jsonDecode(content) as Map<String, dynamic>;
-
-      if (fullData.containsKey('_editorData')) {
-        final editorData = fullData['_editorData'] as Map<String, dynamic>;
-        _cells[s.label] = (editorData['cells'] as List<dynamic>?) ?? [];
-        _rooms[s.label] = (editorData['rooms'] as List<dynamic>?) ?? [];
-      }
-
-      final nodes = Map<String, dynamic>.from(fullData);
-      nodes.remove('_editorData');
-      _nodes[s.label] = nodes;
-    }
-    setState(() {});
+    // rootBundle はメインスレッドのみ可能なので先に文字列を取得
+    final contents = await Future.wait(
+      AppConfig.mapSections.map((s) => rootBundle.loadString(s.path)),
+    );
+    // JSONデコード（重い処理）を別Isolateで実行
+    final result = await compute(_parseAllJson, contents);
+    _nodes.addAll(result.nodes);
+    _cells.addAll(result.cells);
+    _rooms.addAll(result.rooms);
+    if (mounted) setState(() {});
   }
 
   void _checkUrlParameter() {
@@ -253,7 +387,7 @@ class _MapScreenState extends State<MapScreen> {
   List<String> _physicalPath = []; // WaypointPanel 判定用に残す
   String? _crossFloorLabelForTracker;
 
-  void _updatePath() {
+  Future<void> _updatePath() async {
     _passed.clear();
     _goalCenter = _findRoomCenter(goalNode);
     _startCenter = _findRoomCenter(startNode);
@@ -276,15 +410,15 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
-    _calculateGlobalRoute();
+    await _calculateGlobalRoute();
     _calculateViewRoute();
 
     _traveled = 0;
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
 // ─── _calculateGlobalRoute ────────────────────────────────────
-  void _calculateGlobalRoute() {
+  Future<void> _calculateGlobalRoute() async {
     _floorPaths.clear();
     _physicalPath.clear();
     _crossFloorLabelForTracker = null;
@@ -301,52 +435,40 @@ class _MapScreenState extends State<MapScreen> {
 
     _trackerLabel = sL;
 
-    // ★ 変更: _findIdByName → _findIdNearestToCenter
-    //   部屋の場合は中心に最も近いノード、階段・接続点はそのまま
     final sId = _findIdNearestToCenter(startNode!, sL) ?? _findIdByName(startNode!, sL);
     final gId = _findIdNearestToCenter(goalNode!, gL) ?? _findIdByName(goalNode!, gL);
     if (sId == null || gId == null) return;
 
-    if (sL == gL) {
-      final path = RouteCalculator.dijkstra(sId, gId, _nodes[sL] ?? {});
-      if (path.isNotEmpty) _floorPaths[sL] = path;
-    } else {
+    // ★ Isolateで全フロアのDijkstraを並列実行（UIスレッドをブロックしない）
+    final result = await compute<Map<String, dynamic>, Map<String, List<String>>>(
+      _computeAllFloorPaths,
+      {
+        'nodes'   : Map.fromEntries(
+            _nodes.entries.map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value)))),
+        'sections': AppConfig.mapSections.map((s) => s.label).toList(),
+        'startId' : sId,
+        'goalId'  : gId,
+        'sL'      : sL,
+        'gL'      : gL,
+      },
+    );
+
+    // ★ compute は非同期なので、その間に画面が破棄されていないか確認
+    if (!mounted) return;
+
+    _floorPaths = result;
+
+    // 次フロアラベルの設定
+    if (sL != gL) {
       final sections = AppConfig.mapSections;
       final sIdx = sections.indexWhere((s) => s.label == sL);
       final gIdx = sections.indexWhere((s) => s.label == gL);
-      if (sIdx == -1 || gIdx == -1) return;
-
-      final direction = gIdx > sIdx ? 1 : -1;
-      String currentEntryId = sId;
-
-      for (int i = sIdx;
-          direction > 0 ? i <= gIdx : i >= gIdx;
-          i += direction) {
-        final floorLabel = sections[i].label;
-        final nodes = _nodes[floorLabel] ?? {};
-
-        if (i == gIdx) {
-          final path = RouteCalculator.dijkstra(currentEntryId, gId, nodes);
-          if (path.isNotEmpty) _floorPaths[floorLabel] = path;
-        } else {
-          final nextFloor = sections[i + direction].label;
-          final exitId = _connectorTo(floorLabel, nextFloor)
-              ?? _findMatchingStairs(floorLabel, nextFloor);
-          if (exitId == null) break;
-
-          final path = RouteCalculator.dijkstra(currentEntryId, exitId, nodes);
-          if (path.isNotEmpty) _floorPaths[floorLabel] = path;
-
-          final nextEntry = _connectorTo(nextFloor, floorLabel)
-              ?? _findMatchingStairs(nextFloor, floorLabel);
-          if (nextEntry == null) break;
-          currentEntryId = nextEntry;
+      if (sIdx != -1 && gIdx != -1) {
+        final direction = gIdx > sIdx ? 1 : -1;
+        final nextIdx = sIdx + direction;
+        if (nextIdx >= 0 && nextIdx < sections.length) {
+          _crossFloorLabelForTracker = sections[nextIdx].label;
         }
-      }
-
-      final nextIdx = sIdx + direction;
-      if (nextIdx >= 0 && nextIdx < sections.length) {
-        _crossFloorLabelForTracker = sections[nextIdx].label;
       }
     }
 
@@ -373,74 +495,54 @@ class _MapScreenState extends State<MapScreen> {
   }
 
 // ─── _handleCrossFloor ────────────────────────────────────────
-  void _handleCrossFloor(String nextFloor) {
+  Future<void> _handleCrossFloor(String nextFloor) async {
     final nextPath = _floorPaths[nextFloor];
-    debugPrint(
-        '[CrossFloor] nextFloor=$nextFloor, nextPath=${nextPath?.length}ノード');
-
     if (nextPath == null || nextPath.isEmpty) {
-      _showError('次の階への経路が見つかりませんでした ($nextFloor)\n'
-          'JSONのisStairs/connectsToMapを確認してください');
+      _showError('次の階への経路が見つかりませんでした ($nextFloor)');
       return;
     }
-
     final nextStartId = nextPath.first;
-    debugPrint(
-        '[CrossFloor] nextStartId=$nextStartId, _labelOf=${_labelOf(nextStartId)}');
-
-    setState(() {
-      startNode = nextStartId;
-      _startLabel = nextFloor; // ★ フロアを明示セット
-      _currentLabel = nextFloor;
-      _updatePath();
-    });
-
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _focusNode(nextStartId));
+    startNode    = nextStartId;
+    _startLabel  = nextFloor;
+    _currentLabel = nextFloor;
+    if (mounted) setState(() {});
+    await _updatePath();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(nextStartId));
   }
 
-  void _onMapTap(Offset localPos) {
-    debugPrint('Map Tapped at (local): $localPos');
+  Future<void> _onMapTap(Offset localPos) async {
     final double mapX = localPos.dx;
     final double mapY = localPos.dy;
-
     String? closestName;
     double minDist = 30.0;
 
     _cn.forEach((k, v) {
       if (v is! Map || v['name'] == null) return;
       if (v['isStairs'] == true || v['isConnector'] == true) return;
-
       final x = (v['x'] as num).toDouble() + 5.0;
       final y = (v['y'] as num).toDouble() + 5.0;
       final dist = sqrt(pow(x - mapX, 2) + pow(y - mapY, 2));
-
-      if (dist < minDist) {
-        minDist = dist;
-        closestName = v['name'] as String?;
-      }
+      if (dist < minDist) { minDist = dist; closestName = v['name'] as String?; }
     });
 
-    if (closestName != null) {
-      if (startNode == null) {
-        setState(() {
-          startNode = closestName;
-          _startLabel = _labelOf(closestName) ?? _currentLabel; // ★
-          _currentLabel = _startLabel!;
-          _showCompass = true;
-          _updatePath();
-        });
-        _showInfo('現在地を「$closestName」に設定しました');
-      } else {
-        setState(() {
-          goalNode = closestName;
-          if (_startLabel != null && _startLabel != _currentLabel) {
-            _currentLabel = _startLabel!;
-          }
-          _updatePath();
-        });
-        _showInfo('目的地を「$closestName」に設定しました');
+    if (closestName == null) return;
+
+    if (startNode == null) {
+      startNode   = closestName;
+      _startLabel = _labelOf(closestName) ?? _currentLabel;
+      _currentLabel = _startLabel!;
+      _showCompass = true;
+      if (mounted) setState(() {});
+      await _updatePath();
+      _showInfo('現在地を「$closestName」に設定しました');
+    } else {
+      goalNode = closestName;
+      if (_startLabel != null && _startLabel != _currentLabel) {
+        _currentLabel = _startLabel!;
       }
+      if (mounted) setState(() {});
+      await _updatePath();
+      _showInfo('目的地を「$closestName」に設定しました');
     }
   }
 
@@ -483,16 +585,15 @@ class _MapScreenState extends State<MapScreen> {
         SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
-  void _onQRScanned(String data) {
+  Future<void> _onQRScanned(String data) async {
     final label = _labelOf(data);
     if (label != null) {
-      setState(() {
-        startNode = data;
-        _startLabel = label; // ★
-        _currentLabel = label;
-        _showCompass = true;
-      });
-      _updatePath();
+      startNode = data;
+      _startLabel = label;
+      _currentLabel = label;
+      _showCompass = true;
+      if (mounted) setState(() {});
+      await _updatePath();
       WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(data));
     }
   }
@@ -607,11 +708,19 @@ class _MapScreenState extends State<MapScreen> {
             if (_showCompass && currentPath.isNotEmpty)
               Row(children: [
                 Expanded(
-                    child: CompassIndicator(
-                        heading: _heading, routeAngleRad: _routeAngle)),
+                  // ★ コンパス針もValueNotifierから受け取る
+                  child: ValueListenableBuilder<double?>(
+                    valueListenable: _headingNotifier,
+                    builder: (_, heading, __) => CompassIndicator(
+                      heading: heading,
+                      routeAngleRad: _routeAngle,
+                    ),
+                  ),
+                ),
                 IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => setState(() => _showCompass = false)),
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () => setState(() => _showCompass = false),
+                ),
               ]),
 
             // 残り距離
@@ -672,37 +781,45 @@ class _MapScreenState extends State<MapScreen> {
                 constrained: false,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTapUp: (details) => _onMapTap(details.localPosition),
+                  onTapUp: (details) async => await _onMapTap(details.localPosition),
                   child: _cn.isEmpty
                       ? const SizedBox(
                           width: AppConfig.mapCanvasSize,
                           height: AppConfig.mapCanvasSize,
                           child: Center(child: CircularProgressIndicator()),
                         )
-                      : CustomPaint(
-                          size: const Size(
-                              AppConfig.mapCanvasSize, AppConfig.mapCanvasSize),
-                          painter: MapPainter(
-                            nodes: _cn,
-                            cells: _cc,
-                            rooms: _cr,
-                            path: currentPath,
-                            startNode: startNode,
-                            goalNode: goalNode,
-                            goalCenter: _goalCenter,
-                            startCenter: _startCenter,
-                            currentLabel: _currentLabel,
-                            estimatedPosition: _estPos,
-                            headingDeg: _heading,
-                            // ★ _trackerLabel == _currentLabel のときだけ
-                            //    現在地ドットを表示する。
-                            //    表示フロアと物理フロアが一致するときのみ有効。
-                            showUserDot: startNode != null &&
-                                _trackerLabel == _currentLabel,
-                            isGoalOnCurrentFloor: goalNode != null &&
-                                _labelOf(goalNode) == _currentLabel,
-                            isStartOnCurrentFloor: startNode != null &&
-                                _labelOf(startNode) == _currentLabel,
+                      : RepaintBoundary(
+                          child: ValueListenableBuilder<Offset?>(
+                            valueListenable: _posNotifier,
+                            builder: (_, pos, __) => ValueListenableBuilder<double?>(
+                              valueListenable: _headingNotifier,
+                              builder: (_, heading, __) {
+                                // ★ コンパス方向バグ修正: mapNorthDegrees を反映
+                                final canvasDeg = heading != null
+                                    ? ((heading - AppConfig.mapNorthDegrees - 90) % 360 + 360) % 360
+                                    : null;
+                                return CustomPaint(
+                                  size: const Size(AppConfig.mapCanvasSize, AppConfig.mapCanvasSize),
+                                  painter: MapPainter(
+                                    nodes: _cn,
+                                    cells: _cc,
+                                    rooms: _cr,
+                                    path: (startNode != null && _labelOf(startNode) == _currentLabel)
+                                        ? currentPath : [],
+                                    startNode: startNode,
+                                    goalNode: goalNode,
+                                    goalCenter: _goalCenter,
+                                    startCenter: _startCenter,
+                                    currentLabel: _currentLabel,
+                                    estimatedPosition: pos,          // ★ ValueNotifierから
+                                    headingDeg: canvasDeg,           // ★ 変換済み角度
+                                    showUserDot: startNode != null && _trackerLabel == _currentLabel,
+                                    isGoalOnCurrentFloor: goalNode != null && _labelOf(goalNode) == _currentLabel,
+                                    isStartOnCurrentFloor: startNode != null && _labelOf(startNode) == _currentLabel,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
                 ),

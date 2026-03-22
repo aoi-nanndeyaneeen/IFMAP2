@@ -38,7 +38,7 @@ class AppConfig {
   // ── コンパス ───────────────────────────────────────────────────
   // マップの「上」方向が指す磁北方位角(度)
   // キャリブレーション: マップ上方向を実際に向いたときのコンパス値を入れる
-  static const double mapNorthDegrees = -90.0;
+  static const double mapNorthDegrees = 0.0;
 
   // ── マップ描画 ─────────────────────────────────────────────────
   static const double mapCanvasSize     = 2000.0; // CustomPaintのサイズ(px) // マップ全体をカバーできるよう拡張
