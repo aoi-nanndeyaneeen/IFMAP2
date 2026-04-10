@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'platform_utils/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'config.dart';
@@ -135,17 +134,21 @@ class JsonExporter {
       // JSON文字列の生成 (圧縮のためインデントなし)
       final json = const JsonEncoder().convert(nodes);
       
-      // Webブラウザでのファイルダウンロード処理
-      final bytes = utf8.encode(json);
-      final blob = html.Blob([json], 'application/json');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', fileName)
-        ..click();
-        
-      html.document.body?.children.add(anchor);
-      anchor.remove();
-      html.Url.revokeObjectUrl(url);
+      // ★ プラットフォームに応じたファイル保存処理
+      final saver = getFileSaver();
+      saver.saveFile(fileName, json, bgImageBytes).then((_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('マップ情報の書き出しが完了しました'),
+            duration: Duration(seconds: 4),
+          ));
+        }
+      }).catchError((e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存エラー: $e')));
+        }
+      });
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart'; // compute()
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
-
+import 'package:geolocator/geolocator.dart';
 import 'config.dart';
 import 'route_calculator.dart';
 import 'step_tracker.dart';
@@ -182,8 +182,10 @@ class _MapScreenState extends State<MapScreen> {
   final _mapKey = GlobalKey();
 
   // ★ センサー更新をUIから切り離すための ValueNotifier
-  final _posNotifier     = ValueNotifier<Offset?>(null);
-  final _headingNotifier = ValueNotifier<double?>(null);
+  final _posNotifier      = ValueNotifier<Offset?>(null);
+  final _headingNotifier  = ValueNotifier<double?>(null);
+  final _altNotifier      = ValueNotifier<double>(0); // NEW
+  final _gpsNotifier      = ValueNotifier<Position?>(null); // NEW
 
   // ─── lifecycle ────────────────────────────────────────────────
 
@@ -214,6 +216,18 @@ class _MapScreenState extends State<MapScreen> {
         _headingNotifier.value = e.heading;
         _heading = e.heading; // compass_indicator用に保持
       }
+    });
+
+    // ★ 気圧(高度)更新
+    _tracker.altitudeStream.listen((h) {
+      _altNotifier.value = h;
+      _checkFloorChangeSuggestion(h);
+    });
+
+    // ★ GPS更新
+    _tracker.gpsStream.listen((p) {
+      _gpsNotifier.value = p;
+      if (p != null) _checkMapSwitchSuggestion(p);
     });
 
     _loadAllMaps().then((_) => _checkUrlParameter());
@@ -623,6 +637,198 @@ class _MapScreenState extends State<MapScreen> {
             ));
   }
 
+  // ─── 提案ダイアログ ───────────────────────────────────────────
+  bool _suggestionVisible = false;
+  final Set<String> _ignoredMapSuggestions = {};
+
+  void _checkFloorChangeSuggestion(double h) {
+    if (_suggestionVisible) return;
+    
+    if (h.abs() > AppConfig.altitudeThreshold) {
+      final direction = h > 0 ? 1 : -1;
+      final sections = AppConfig.mapSections;
+      final currentSection = sections.firstWhere((s) => s.label == _trackerLabel);
+      final targetFloor = currentSection.floorLevel + direction;
+      
+      final target = sections.cast<MapSection?>().firstWhere(
+        (s) => s?.floorLevel == targetFloor,
+        orElse: () => null,
+      );
+      
+      if (target != null) {
+        _showSuggestionDialog(
+          title: '階層移動の検知',
+          message: '高度の変化を検知しました。${target.label} へ切り替えますか？',
+          onIgnore: () {
+            _tracker.resetAltitude();
+          },
+          onConfirm: () {
+            _tracker.resetAltitude();
+            _handleCrossFloor(target.label);
+          },
+        );
+      }
+    }
+  }
+
+  void _checkMapSwitchSuggestion(Position p) {
+    if (_suggestionVisible) return;
+    
+    final currentSection = AppConfig.mapSections.firstWhere((s) => s.label == _trackerLabel);
+
+    for (final section in AppConfig.mapSections) {
+      if (section.label == _trackerLabel) continue;
+      if (section.anchorLat == null || section.anchorLng == null) continue;
+      
+      // 同じ建物内の他フロアへのサジェストを防ぐ (アンカーがコンマ数桁まで完全に一致する場合)
+      if (currentSection.anchorLat == section.anchorLat && 
+          currentSection.anchorLng == section.anchorLng) {
+        continue;
+      }
+
+      if (_ignoredMapSuggestions.contains(section.label)) continue;
+
+      final dist = Geolocator.distanceBetween(
+        p.latitude, p.longitude,
+        section.anchorLat!, section.anchorLng!,
+      );
+      
+      if (dist < 20) { // 20m
+        _showSuggestionDialog(
+          title: '建物への接近',
+          message: '現在地が ${section.label} の入口付近です。マップを表示しますか？',
+          onIgnore: () {
+            _ignoredMapSuggestions.add(section.label);
+          },
+          onConfirm: () {
+            _onMapSwitch(section.label);
+          },
+        );
+        break;
+      }
+    }
+  }
+
+  void _onMapSwitch(String label) {
+    setState(() {
+      _currentLabel = label;
+      _trackerLabel = label;
+      _calculateViewRoute();
+    });
+    // 必要ならトラッカーのリセットなども行う
+    _tracker.clear();
+  }
+
+  void _showSuggestionDialog({
+    required String title,
+    required String message,
+    required VoidCallback onIgnore,
+    required VoidCallback onConfirm,
+  }) {
+    _suggestionVisible = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () { 
+              _suggestionVisible = false; 
+              Navigator.pop(ctx); 
+              onIgnore();
+            },
+            child: const Text('無視'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _suggestionVisible = false;
+              Navigator.pop(ctx);
+              onConfirm();
+            },
+            child: const Text('切り替え'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDebugSensorSimulator() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        double alt = 0;
+        double lat = 35.151;
+        double lng = 136.924;
+        return AlertDialog(
+          title: const Text('Debug Sensor Simulator'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ValueListenableBuilder<double>(
+                  valueListenable: _altNotifier,
+                  builder: (ctx, altVal, _) => Text('Current Relative Alt: ${altVal.toStringAsFixed(2)} m'),
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Simulate Relative Altitude (m)'),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => alt = double.tryParse(v) ?? 0,
+                ),
+                const SizedBox(height: 24),
+                ValueListenableBuilder<Position?>(
+                  valueListenable: _gpsNotifier,
+                  builder: (ctx, pos, _) => Text(
+                    pos == null 
+                        ? 'Current GPS: Unknown' 
+                        : 'Current GPS: ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}'
+                  ),
+                ),
+                const Text('Simulate GPS Near Anchor:', style: TextStyle(fontWeight: FontWeight.bold)),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Latitude'),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => lat = double.tryParse(v) ?? lat,
+                ),
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Longitude'),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => lng = double.tryParse(v) ?? lng,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _tracker.debugInjectAltitude(alt);
+                _tracker.debugInjectGps(Position(
+                  latitude: lat,
+                  longitude: lng,
+                  timestamp: DateTime.now(),
+                  accuracy: 5.0,
+                  altitude: 0.0,
+                  altitudeAccuracy: 0.0,
+                  heading: 0.0,
+                  headingAccuracy: 0.0,
+                  speed: 0.0,
+                  speedAccuracy: 0.0,
+                ));
+                Navigator.pop(ctx);
+              },
+              child: const Text('Inject'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // ─── 計算プロパティ ───────────────────────────────────────────
 
   double? get _routeAngle {
@@ -656,11 +862,44 @@ class _MapScreenState extends State<MapScreen> {
     return null;
   }
 
-  // ─── build ────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.cyan),
+              child: Text('設定', style: TextStyle(color: Colors.white, fontSize: 24)),
+            ),
+            StatefulBuilder(
+              builder: (context, setHeaderState) => Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('気圧センサ (フロア移動検知)'),
+                    subtitle: const Text('未対応機種ではオフにしてください'),
+                    value: AppConfig.enableBarometer,
+                    onChanged: (val) {
+                      setHeaderState(() => AppConfig.enableBarometer = val);
+                      _tracker.toggleBarometer(val);
+                    },
+                  ),
+                  SwitchListTile(
+                    title: const Text('GPS (建物接近検知)'),
+                    subtitle: const Text('屋内でGPSが誤作動する場合はオフに'),
+                    value: AppConfig.enableGps,
+                    onChanged: (val) {
+                      setHeaderState(() => AppConfig.enableGps = val);
+                      _tracker.toggleGps(val);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         title: Text(
             startNode == null
@@ -672,6 +911,10 @@ class _MapScreenState extends State<MapScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report, color: Colors.orange),
+            onPressed: () => _showDebugSensorSimulator(),
+          ),
           IconButton(
             icon: const Icon(Icons.list),
             onPressed: () => _showDestinationPicker(),

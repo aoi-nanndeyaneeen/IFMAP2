@@ -1,8 +1,10 @@
 // lib/config.dart
 class AppConfig {
   // マス目の数（ここで自由に変更できます）
-  static const int rows = 330;
-  static const int cols = 468;
+  static const int rows = 16;
+  static const int cols = 25;
+
+  //330,468
   
   // 文字を何文字で改行するか
   static const int maxCharsPerLine = 8;

@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:geolocator/geolocator.dart';
 import 'config.dart';
 
 class GateInfo {
@@ -46,14 +47,28 @@ class StepTracker {
   List<_Gate>          _gates    = [];
   int                  _gateIdx  = 0;
 
+  // Barometer & GPS
+  double? _refPressure;
+  double  _currentAlt = 0;
+  double? _filteredPressure;
+  Position? _currentGps;
+
   StreamSubscription?  _sub;
+  StreamSubscription?  _baroSub;
+  StreamSubscription?  _gpsSub;
+
   final _posCtrl  = StreamController<Offset?>.broadcast();
   final _distCtrl = StreamController<double>.broadcast();
   final _gateCtrl = StreamController<GateInfo?>.broadcast();
+  final _altCtrl  = StreamController<double>.broadcast();
+  final _gpsCtrl  = StreamController<Position?>.broadcast();
 
   Stream<Offset?>   get positionStream => _posCtrl.stream;
   Stream<double>    get traveledStream => _distCtrl.stream;
   Stream<GateInfo?> get nextGateStream => _gateCtrl.stream;
+  Stream<double>    get altitudeStream => _altCtrl.stream;
+  Stream<Position?> get gpsStream      => _gpsCtrl.stream;
+  Position?         get currentGps     => _currentGps;
 
   double         get totalRoutePx => _cumDist.isEmpty ? 0 : _cumDist.last;
   double         get traveledPx   => _traveled;
@@ -71,12 +86,8 @@ class StepTracker {
     // ★ FIX (Issue 2): フロア切替直後に新しいパスの先頭座標を即送出する。
     // これがないと _estPos が前フロアの座標のまま残り、
     // showUserDot=true でも現在位置が正しい階に表示されない。
-    _posCtrl.add(_calcPosition());
-    _distCtrl.add(_traveled);
-
-    _sub = userAccelerometerEventStream(
-      samplingPeriod: SensorInterval.normalInterval,
-    ).listen((e) {
+    // ★ 修正: sensors_plus 7.0.0 の新しいイベントストリームの形式を使用
+    _sub = userAccelerometerEventStream().listen((e) {
       final mag = sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
       if (mag > AppConfig.stepAccelThreshold && !_cooldown) {
         _cooldown = true;
@@ -87,10 +98,103 @@ class StepTracker {
         Future.delayed(const Duration(milliseconds: 400), () => _cooldown = false);
       }
     }, onError: (_) {});
+
+    // 気圧センサー開始 (sensors_plus 7.0.0)
+    toggleBarometer(AppConfig.enableBarometer);
+
+    // GPS開始
+    toggleGps(AppConfig.enableGps);
+  }
+
+  void toggleBarometer(bool enable) {
+    _baroSub?.cancel();
+    if (enable) {
+      _baroSub = barometerEventStream().listen((e) {
+        _updateAltitude(e.pressure);
+      }, onError: (err) {
+        debugPrint('Barometer error: $err');
+      });
+    }
+  }
+
+  void toggleGps(bool enable) {
+    if (enable) {
+      _startGps();
+    } else {
+      _gpsSub?.cancel();
+      _currentGps = null;
+    }
+  }
+
+  void _startGps() async {
+    _gpsSub?.cancel();
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      
+      if (permission == LocationPermission.deniedForever) return;
+
+      _gpsSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 2,
+        ),
+      ).listen((p) {
+        _currentGps = p;
+        _gpsCtrl.add(p);
+      });
+    } catch (e) {
+      debugPrint('GPS Error: $e');
+    }
+  }
+
+  void _updateAltitude(double pressure) {
+    if (_filteredPressure == null) {
+      _filteredPressure = pressure;
+    } else {
+      _filteredPressure = _filteredPressure! * (1 - AppConfig.pressureFilterAlpha) +
+                          pressure * AppConfig.pressureFilterAlpha;
+    }
+
+    if (_refPressure == null) {
+      _refPressure = _filteredPressure;
+      return;
+    }
+
+    // 高度計算 (Hypsometric formula)
+    // h = 44330 * (1 - (P/P0)^(1/5.255))
+    final h = 44330 * (1 - pow(_filteredPressure! / _refPressure!, 1 / 5.255));
+    _currentAlt = h.toDouble();
+    _altCtrl.add(h.toDouble());
+  }
+
+  void resetAltitude() {
+    _refPressure = _filteredPressure;
+    _currentAlt = 0;
+    _altCtrl.add(0.0);
+  }
+
+  // デバッグ用: 手動で値を注入する
+  void debugInjectAltitude(double h) {
+    _currentAlt = h;
+    _altCtrl.add(h);
+  }
+
+  void debugInjectGps(Position p) {
+    _currentGps = p;
+    _gpsCtrl.add(p);
   }
 
   void clear() {
     _sub?.cancel();
+    _baroSub?.cancel();
+    _gpsSub?.cancel();
     _path = [];
     _nodes = {};
     _cumDist = [];
@@ -100,6 +204,7 @@ class StepTracker {
     _posCtrl.add(null);
     _distCtrl.add(0);
     _gateCtrl.add(null);
+    _gpsCtrl.add(null);
   }
 
   void setGates() {
@@ -178,7 +283,10 @@ class StepTracker {
 
   void dispose() {
     _sub?.cancel();
+    _baroSub?.cancel();
+    _gpsSub?.cancel();
     _posCtrl.close(); _distCtrl.close(); _gateCtrl.close();
+    _altCtrl.close(); _gpsCtrl.close();
   }
 
   void _tryAdd(GateInfo info, double px) {

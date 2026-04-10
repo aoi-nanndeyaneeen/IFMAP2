@@ -11,8 +11,9 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   mobile_scanner: ^4.0.1
-  sensors_plus: ^4.0.0
+  sensors_plus: 7.0.0
   flutter_compass: ^0.8.1
+  geolocator: ^10.1.0
   vector_math: ^2.2.0
 
 dev_dependencies:

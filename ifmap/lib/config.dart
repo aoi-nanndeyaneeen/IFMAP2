@@ -4,7 +4,25 @@
 class MapSection {
   final String path;  // pubspec.yaml の assets に登録したパス
   final String label; // UI表示名 & JSON の connectsToMap と完全一致させること
-  const MapSection({required this.path, required this.label});
+  
+  // GPS/階層連携用
+  final double? anchorLat;
+  final double? anchorLng;
+  final double? anchorX;
+  final double? anchorY;
+  final double? rotationAngle; // 磁北に対するマップの回転(度)
+  final int floorLevel;        // 1, 2, 3... (地下は -1, -2...)
+
+  const MapSection({
+    required this.path,
+    required this.label,
+    this.anchorLat,
+    this.anchorLng,
+    this.anchorX,
+    this.anchorY,
+    this.rotationAngle,
+    this.floorLevel = 1,
+  });
 }
 
 class AppConfig {
@@ -12,14 +30,34 @@ class AppConfig {
   // 建物・フロアを追加するときはここにエントリを足すだけ。
   // あわせて pubspec.yaml の assets: にも同じパスを追加すること。
   static const List<MapSection> mapSections = [
-    // --- 自宅 (現在はNITTC用として使っているため非表示) ---
-    // MapSection(path: 'assets/home/map_1f.json', label: 'Home_1F'),
-    // MapSection(path: 'assets/home/map_2f.json', label: 'Home_2F'),
-    
+    // --- HOME ---
+    MapSection(
+      path: 'assets/home/home_1f.json',
+      label: 'HOME_1F',
+      floorLevel: 1,
+      // anchorLat: 35.xxxx, // 自宅の座標がわかったらここに入れる
+      // anchorLng: 136.xxxx,
+    ),
+    MapSection(
+      path: 'assets/home/home_2f.json',
+      label: 'HOME_2F',
+      floorLevel: 2,
+    ),
+
+    /*
     // --- NITTC 本棟 ---
-    MapSection(path: 'assets/NITTC/NITTC_1F.json', label: 'NITTC_1F'),
-    MapSection(path: 'assets/NITTC/NITTC_2F.json', label: 'NITTC_2F'),
-    MapSection(path: 'assets/NITTC/NITTC_3F.json', label: 'NITTC_3F'),
+    MapSection(
+      path: 'assets/NITTC/NITTC_1F.json',
+      label: 'NITTC_1F',
+      floorLevel: 1,
+      anchorLat: 35.151, // 例: 正門付近
+      anchorLng: 136.924,
+      anchorX: 1440,
+      anchorY: 1870,
+    ),
+    MapSection(path: 'assets/NITTC/NITTC_2F.json', label: 'NITTC_2F', floorLevel: 2),
+    MapSection(path: 'assets/NITTC/NITTC_3F.json', label: 'NITTC_3F', floorLevel: 3),
+    */
   ];
 
   // ── 縮尺（ifmap_editor の config.dart と必ず揃えること） ────────
@@ -32,21 +70,24 @@ class AppConfig {
   /// 歩数センサー: 1歩あたりのJSON-px数（自動計算）
   static double get stepLengthPx => strideMeters / metersPerPx; // = 14.0 px
 
-  // 加速度しきい値: 高い→鈍感(誤検出減) / 低い→敏感(進みやすい)
+  // 加速度しきい値
   static const double stepAccelThreshold = 1.0;
 
-  // ── コンパス ───────────────────────────────────────────────────
+  // ── 高度・気圧 ───────────────────────────────────────────────
+  static bool enableBarometer = true; // センサー無効化用トグル
+  static const double altitudeThreshold = 2.5; // 階移動を検知する高度差(m)
+  static const double pressureFilterAlpha = 0.1; // 気圧フィルタの係数
+
+  // ── コンパス＆GPS ──────────────────────────────────────────────
+  static bool enableGps = true;       // GPS無効化用トグル
   // マップの「上」方向が指す磁北方位角(度)
-  // キャリブレーション: マップ上方向を実際に向いたときのコンパス値を入れる
   static const double mapNorthDegrees = 0.0;
 
   // ── マップ描画 ─────────────────────────────────────────────────
-  static const double mapCanvasSize     = 2000.0; // CustomPaintのサイズ(px) // マップ全体をカバーできるよう拡張
-  static const double focusScale        = 1.8;   // QR後・追従時のズーム倍率
-  static const double focusVerticalRatio = 0.5;  // 現在地の縦位置(0=上端, 0.5=中央)
+  static const double mapCanvasSize     = 2000.0;
+  static const double focusScale        = 1.8;
+  static const double focusVerticalRatio = 0.5;
 
   // ── ゲート(通過点)検出 ─────────────────────────────────────────
-  // 部屋とみなす半径: 5マス × 10px/マス = 50px
-  // editor の metersPerCell/pxPerCell を変えたらここも更新すること
   static const double waypointRadiusPx = 50.0;
 }
