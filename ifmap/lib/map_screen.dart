@@ -176,7 +176,7 @@ class _MapScreenState extends State<MapScreen> {
   final Set<String> _passed = {};
 
   double? _heading;
-  bool _showCompass = false, _followMode = false;
+  bool _showCompass = false, _followMode = false, _arrived = false;
 
   final _tx = TransformationController();
   final _mapKey = GlobalKey();
@@ -205,7 +205,15 @@ class _MapScreenState extends State<MapScreen> {
     _tracker.traveledStream.listen((d) {
       _traveled = d;
       // 残距離テキストだけ更新（マップ全体のsetStateは不要）
-      if (mounted) setState(() {}); // _remTextのみ依存→最小限
+      if (mounted) {
+        setState(() {});
+        // ★ 自動到着判定
+        if (!_arrived && goalNode != null && _tracker.nextGate == null && _labelOf(goalNode) == _trackerLabel) {
+          if (_tracker.traveledPx >= _tracker.totalRoutePx - 5.0) {
+            _onArrived();
+          }
+        }
+      }
     });
 
     _tracker.nextGateStream.listen((g) => setState(() => _nextGate = g));
@@ -408,6 +416,7 @@ class _MapScreenState extends State<MapScreen> {
 
     if (goalNode != null) {
       _followMode = true;
+      _arrived = false; // ゴール設定時はリセット
     }
 
     if (startNode == null) {
@@ -615,6 +624,8 @@ class _MapScreenState extends State<MapScreen> {
   void _onArrived() {
     if (goalNode == null || _labelOf(goalNode) != _currentLabel) return;
     if (ModalRoute.of(context)?.isCurrent == false) return;
+    if (_arrived) return; // 重複防止
+    _arrived = true;
 
     showDialog(
         context: context,
@@ -992,7 +1003,7 @@ class _MapScreenState extends State<MapScreen> {
                   setState(() {});
 
                   // ★ 課題C修正: _trackerLabel で判定（_labelOf に依存しない）
-                  if (goalNode != null &&
+                  if (!_arrived && goalNode != null &&
                       _tracker.nextGate == null &&
                       _labelOf(goalNode) == _trackerLabel) {
                     _onArrived();
@@ -1092,6 +1103,7 @@ class _MapScreenState extends State<MapScreen> {
                   _nextGate = null;
                   _followMode = false;
                   _showCompass = false;
+                  _arrived = false;
                   _trackerLabel = _currentLabel;
                 });
                 _showInfo('位置を全てリセットしました。現在地を選択してください。');

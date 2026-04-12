@@ -32,14 +32,14 @@ class AppConfig {
   static const List<MapSection> mapSections = [
     // --- HOME ---
     MapSection(
-      path: 'assets/home/home_1f.json',
+      path: 'assets/home/home_1F.json',
       label: 'HOME_1F',
       floorLevel: 1,
       // anchorLat: 35.xxxx, // 自宅の座標がわかったらここに入れる
       // anchorLng: 136.xxxx,
     ),
     MapSection(
-      path: 'assets/home/home_2f.json',
+      path: 'assets/home/home_2F.json',
       label: 'HOME_2F',
       floorLevel: 2,
     ),
@@ -81,7 +81,7 @@ class AppConfig {
   // ── コンパス＆GPS ──────────────────────────────────────────────
   static bool enableGps = true;       // GPS無効化用トグル
   // マップの「上」方向が指す磁北方位角(度)
-  static const double mapNorthDegrees = 0.0;
+  static const double mapNorthDegrees = -90.0;
 
   // ── マップ描画 ─────────────────────────────────────────────────
   static const double mapCanvasSize     = 2000.0;
