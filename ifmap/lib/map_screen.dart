@@ -1058,8 +1058,7 @@ class _MapScreenState extends State<MapScreen> {
                                     nodes: _cn,
                                     cells: _cc,
                                     rooms: _cr,
-                                    path: (startNode != null && _labelOf(startNode) == _currentLabel)
-                                        ? currentPath : [],
+                                    path: currentPath,
                                     startNode: startNode,
                                     goalNode: goalNode,
                                     goalCenter: _goalCenter,
@@ -1069,7 +1068,7 @@ class _MapScreenState extends State<MapScreen> {
                                     headingDeg: canvasDeg,           // ★ 変換済み角度
                                     showUserDot: startNode != null && _trackerLabel == _currentLabel,
                                     isGoalOnCurrentFloor: goalNode != null && _labelOf(goalNode) == _currentLabel,
-                                    isStartOnCurrentFloor: startNode != null && _labelOf(startNode) == _currentLabel,
+                                    isStartOnCurrentFloor: startNode != null && _startLabel == _currentLabel,
                                   ),
                                 );
                               },
