@@ -99,7 +99,9 @@ String? _findConnector(Map<String, dynamic> nodes, String toLabel) {
   for (final e in nodes.entries) {
     if (e.value is Map &&
         e.value['isConnector'] == true &&
-        e.value['connectsToMap'] == toLabel) return e.key;
+        e.value['connectsToMap'] == toLabel) {
+      return e.key;
+    }
   }
   return null;
 }
@@ -123,12 +125,16 @@ String? _findStairs(Map<String, dynamic> fromNodes, Map<String, dynamic> toNodes
   if (matchName != null) {
     for (final e in fromNodes.entries) {
       if (e.value is Map && e.value['isStairs'] == true &&
-          e.value['name'] == matchName) return e.key;
+          e.value['name'] == matchName) {
+        return e.key;
+      }
     }
   }
-  for (final e in fromNodes.entries) {
-    if (e.value is Map && e.value['isStairs'] == true) return e.key;
-  }
+    for (final e in fromNodes.entries) {
+      if (e.value is Map && e.value['isStairs'] == true) {
+        return e.key;
+      }
+    }
   return null;
 }
 
@@ -175,7 +181,6 @@ class _MapScreenState extends State<MapScreen> {
   GateInfo? _nextGate;
   final Set<String> _passed = {};
 
-  double? _heading;
   bool _showCompass = false, _followMode = false, _arrived = false;
 
   final _tx = TransformationController();
@@ -198,8 +203,9 @@ class _MapScreenState extends State<MapScreen> {
     _tracker.positionStream.listen((p) {
       _posNotifier.value = p;
       _estPos = p; // 残距離計算用に保持
-      if (_followMode && p != null)
+      if (_followMode && p != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _centerOn(p));
+      }
     });
 
     _tracker.traveledStream.listen((d) {
@@ -222,7 +228,6 @@ class _MapScreenState extends State<MapScreen> {
     FlutterCompass.events?.listen((e) {
       if (e.heading != null) {
         _headingNotifier.value = e.heading;
-        _heading = e.heading; // compass_indicator用に保持
       }
     });
 
@@ -267,8 +272,9 @@ class _MapScreenState extends State<MapScreen> {
   void _checkUrlParameter() {
     try {
       final u = Uri.base;
-      if (u.queryParameters.containsKey('start'))
+      if (u.queryParameters.containsKey('start')) {
         _onQRScanned(u.queryParameters['start']!);
+      }
     } catch (_) {}
   }
 
@@ -324,55 +330,19 @@ class _MapScreenState extends State<MapScreen> {
     return bestId ?? _findIdByName(name, label);
   }
 
-  String? _findMatchingStairs(String fromLabel, String toLabel) {
-    final fromStairs = <String>{};
-    _nodes[fromLabel]?.forEach((k, v) {
-      if (v is Map && v['isStairs'] == true && v['name'] != null)
-        fromStairs.add(v['name']);
-    });
-
-    String? matchingStairsName;
-    _nodes[toLabel]?.forEach((k, v) {
-      if (v is Map &&
-          v['isStairs'] == true &&
-          v['name'] != null &&
-          fromStairs.contains(v['name'])) matchingStairsName = v['name'];
-    });
-
-    if (matchingStairsName != null) {
-      for (final e in (_nodes[fromLabel] ?? {}).entries) {
-        if (e.value is Map &&
-            e.value['isStairs'] == true &&
-            e.value['name'] == matchingStairsName) return e.key;
-      }
-    }
-
-    for (final e in (_nodes[fromLabel] ?? {}).entries) {
-      if (e.value is Map &&
-          (e.value['isStairs'] == true || e.key.toLowerCase() == 'stairs'))
-        return e.key;
-    }
-    return null;
-  }
-
-  String? _connectorTo(String fromLabel, String toLabel) {
-    for (final e in (_nodes[fromLabel] ?? {}).entries) {
-      if (e.value is Map &&
-          e.value['isConnector'] == true &&
-          e.value['connectsToMap'] == toLabel) return e.key;
-    }
-    return null;
-  }
-
   List<String> _allDestinations({String? floorLabel}) {
     final d = <String>[];
     for (final entry in _nodes.entries) {
-      if (floorLabel != null && entry.key != floorLabel) continue;
+      if (floorLabel != null && entry.key != floorLabel) {
+        continue;
+      }
       entry.value.forEach((k, v) {
         if (v is Map &&
             v['name'] != null &&
             v['isStairs'] != true &&
-            v['isConnector'] != true) d.add(v['name']!);
+            v['isConnector'] != true) {
+          d.add(v['name']!);
+        }
       });
     }
     return d.toSet().toList();
@@ -381,7 +351,9 @@ class _MapScreenState extends State<MapScreen> {
   Offset? _findRoomCenter(String? roomName) {
     if (roomName == null) return null;
     final gL = _labelOf(roomName);
-    if (gL == null) return null;
+    if (gL == null) {
+      return null;
+    }
     for (final room in (_rooms[gL] ?? [])) {
       if (room is Map && room['name'] == roomName) {
         final cx = (room['centerX'] as num?)?.toDouble();
@@ -454,13 +426,17 @@ class _MapScreenState extends State<MapScreen> {
 
     final sL = _startLabel ?? _labelOf(startNode);
     final gL = _labelOf(goalNode);
-    if (sL == null || gL == null) return;
+    if (sL == null || gL == null) {
+      return;
+    }
 
     _trackerLabel = sL;
 
     final sId = _findIdNearestToCenter(startNode!, sL) ?? _findIdByName(startNode!, sL);
     final gId = _findIdNearestToCenter(goalNode!, gL) ?? _findIdByName(goalNode!, gL);
-    if (sId == null || gId == null) return;
+    if (sId == null || gId == null) {
+      return;
+    }
 
     // ★ Isolateで全フロアのDijkstraを並列実行（UIスレッドをブロックしない）
     final result = await compute<Map<String, dynamic>, Map<String, List<String>>>(
@@ -477,7 +453,9 @@ class _MapScreenState extends State<MapScreen> {
     );
 
     // ★ compute は非同期なので、その間に画面が破棄されていないか確認
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     _floorPaths = result;
 
@@ -548,7 +526,9 @@ class _MapScreenState extends State<MapScreen> {
       if (dist < minDist) { minDist = dist; closestName = v['name'] as String?; }
     });
 
-    if (closestName == null) return;
+    if (closestName == null) {
+      return;
+    }
 
     if (startNode == null) {
       startNode   = closestName;
@@ -615,16 +595,24 @@ class _MapScreenState extends State<MapScreen> {
       _startLabel = label;
       _currentLabel = label;
       _showCompass = true;
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
       await _updatePath();
       WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode(data));
     }
   }
 
   void _onArrived() {
-    if (goalNode == null || _labelOf(goalNode) != _currentLabel) return;
-    if (ModalRoute.of(context)?.isCurrent == false) return;
-    if (_arrived) return; // 重複防止
+    if (goalNode == null || _labelOf(goalNode) != _currentLabel) {
+      return;
+    }
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    if (_arrived) {
+      return; // 重複防止
+    }
     _arrived = true;
 
     showDialog(
@@ -683,7 +671,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _checkMapSwitchSuggestion(Position p) {
-    if (_suggestionVisible) return;
+    if (_suggestionVisible) {
+      return;
+    }
     
     final currentSection = AppConfig.mapSections.firstWhere((s) => s.label == _trackerLabel);
 
@@ -860,17 +850,6 @@ class _MapScreenState extends State<MapScreen> {
         (_tracker.totalRoutePx - _traveled).clamp(0.0, double.infinity);
     final remM = (remPx * AppConfig.metersPerPx).toStringAsFixed(0);
     return 'あと約 $remM m';
-  }
-
-  String? get _connectorDestLabel {
-    if (currentPath.isEmpty) return null;
-    final last = _cn[currentPath.last];
-    if (last?['isConnector'] == true) return last?['connectsToMap'] as String?;
-    if (last?['isStairs'] == true) {
-      final gL = _labelOf(goalNode);
-      return (gL != null && gL != _currentLabel) ? gL : null;
-    }
-    return null;
   }
 
   @override

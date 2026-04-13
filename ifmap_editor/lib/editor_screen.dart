@@ -70,8 +70,8 @@ class _EditorScreenState extends State<EditorScreen> {
     if (f != null) _ctrl.setBgImage(await f.readAsBytes());
   }
 
-  void _zoomIn()  => _transformCtrl.value = _transformCtrl.value.clone()..scale(1.2);
-  void _zoomOut() => _transformCtrl.value = _transformCtrl.value.clone()..scale(1 / 1.2);
+  void _zoomIn()  => _transformCtrl.value = _transformCtrl.value.clone()..scaleByDouble(1.2, 1.2, 1.0, 1.0);
+  void _zoomOut() => _transformCtrl.value = _transformCtrl.value.clone()..scaleByDouble(1 / 1.2, 1 / 1.2, 1.0, 1.0);
 
   // ── 自動生成 ───────────────────────────────────────────
   Future<void> _runAutoGenerator() async {
@@ -88,12 +88,16 @@ class _EditorScreenState extends State<EditorScreen> {
         _ctrl.bgImageBytes!, AppConfig.cols, AppConfig.rows);
       if (detector != null) {
         _ctrl.applyWalls(detector.detectWalls(1.0 - _ctrl.wallSensitivity));
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('壁の自動生成が完了しました！')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('壁の自動生成が完了しました！')));
+        }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('エラー: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')));
+      }
     } finally {
       _ctrl.setIsAnalyzing(false);
     }
@@ -165,7 +169,10 @@ class _EditorScreenState extends State<EditorScreen> {
             onPressed: () async {
               final name = await EditorDialogs.showSaveAs(
                 context, _ctrl.currentFileName);
-              if (name != null && mounted) {
+              if (name != null) {
+                if (!context.mounted) {
+                  return;
+                }
                 _ctrl.setFileName(name);
                 JsonExporter.export(context, _ctrl.grid, _ctrl.bgImageBytes, name);
               }

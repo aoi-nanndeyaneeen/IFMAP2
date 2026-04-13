@@ -169,13 +169,17 @@ class AutoWallDetector {
           currentSegment.add(xList[i]);
         } else {
           if (currentSegment.length >= minLength) {
-            for (int sx in currentSegment) filteredWalls.add('${sx}_${y}_h');
+            for (int sx in currentSegment) {
+              filteredWalls.add('${sx}_${y}_h');
+            }
           }
           currentSegment = [xList[i]];
         }
       }
       if (currentSegment.length >= minLength) {
-        for (int sx in currentSegment) filteredWalls.add('${sx}_${y}_h');
+        for (int sx in currentSegment) {
+          filteredWalls.add('${sx}_${y}_h');
+        }
       }
     }
 
@@ -188,13 +192,17 @@ class AutoWallDetector {
           currentSegment.add(yList[i]);
         } else {
           if (currentSegment.length >= minLength) {
-            for (int sy in currentSegment) filteredWalls.add('${x}_${sy}_v');
+            for (int sy in currentSegment) {
+              filteredWalls.add('${x}_${sy}_v');
+            }
           }
           currentSegment = [yList[i]];
         }
       }
       if (currentSegment.length >= minLength) {
-        for (int sy in currentSegment) filteredWalls.add('${x}_${sy}_v');
+        for (int sy in currentSegment) {
+          filteredWalls.add('${x}_${sy}_v');
+        }
       }
     }
 

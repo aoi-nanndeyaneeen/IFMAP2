@@ -302,23 +302,30 @@ class MapPainter extends CustomPainter {
       ..color = Colors.orange.shade800
       ..strokeWidth = 4;
 
-    if (n['wallTop'] == true)
+    if (n['wallTop'] == true) {
       canvas.drawLine(Offset(x, y), Offset(x + 10, y), wallPaint);
-    if (n['wallBottom'] == true)
+    }
+    if (n['wallBottom'] == true) {
       canvas.drawLine(Offset(x, y + 10), Offset(x + 10, y + 10), wallPaint);
-    if (n['wallLeft'] == true)
+    }
+    if (n['wallLeft'] == true) {
       canvas.drawLine(Offset(x, y), Offset(x, y + 10), wallPaint);
-    if (n['wallRight'] == true)
+    }
+    if (n['wallRight'] == true) {
       canvas.drawLine(Offset(x + 10, y), Offset(x + 10, y + 10), wallPaint);
-
-    if (n['doorTop'] == true)
+    }
+    if (n['doorTop'] == true) {
       canvas.drawLine(Offset(x + 2, y), Offset(x + 8, y), doorPaint);
-    if (n['doorBottom'] == true)
+    }
+    if (n['doorBottom'] == true) {
       canvas.drawLine(Offset(x + 2, y + 10), Offset(x + 8, y + 10), doorPaint);
-    if (n['doorLeft'] == true)
+    }
+    if (n['doorLeft'] == true) {
       canvas.drawLine(Offset(x, y + 2), Offset(x, y + 8), doorPaint);
-    if (n['doorRight'] == true)
+    }
+    if (n['doorRight'] == true) {
       canvas.drawLine(Offset(x + 10, y + 2), Offset(x + 10, y + 8), doorPaint);
+    }
   }
 
   Color _getColorForType(int type, String floor) {

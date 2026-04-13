@@ -6,11 +6,16 @@ import 'stub_file_saver.dart';
 
 class MobileFileSaver implements FileSaver {
   @override
-  Future<void> saveFile(String fileName, String content, Uint8List? bytes) async {
+  Future<void> saveFile(String fileName, String content, Uint8List? _) async {
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/$fileName');
     await file.writeAsString(content);
-    await Share.shareXFiles([XFile(file.path)], text: 'Exported Map Data');
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        text: 'Exported Map Data',
+      ),
+    );
   }
 }
 

@@ -66,14 +66,16 @@ class InputHandler {
     final size = box.size;
     const th = 50.0, sp = 15.0;
     double dx = 0, dy = 0;
-    if (local.dx < th)
+    if (local.dx < th) {
       dx = sp;
-    else if (local.dx > size.width - th)
+    } else if (local.dx > size.width - th) {
       dx = -sp;
-    if (local.dy < th)
+    }
+    if (local.dy < th) {
       dy = sp;
-    else if (local.dy > size.height - th)
+    } else if (local.dy > size.height - th) {
       dy = -sp;
+    }
     if (dx == 0 && dy == 0) return;
     final m = transformCtrl.value.clone();
     m[12] += dx;
@@ -188,7 +190,7 @@ class InputHandler {
       if (singleClickVx != null) {
         _restoreScratchpad();
         if (vx == singleClickVx && vy == singleClickVy) {
-          if (singleEdgeX1 != null)
+          if (singleEdgeX1 != null) {
             _drawTempEdge(
               singleEdgeX1!,
               singleEdgeY1!,
@@ -197,11 +199,12 @@ class InputHandler {
               isRightClickEraser,
               ab == 8,
             );
+          }
         } else {
           if ((vx - singleClickVx!).abs() > (vy - singleClickVy!).abs()) {
             final mn = math.min(vx, singleClickVx!),
                 mx = math.max(vx, singleClickVx!);
-            for (int tx = mn; tx < mx; tx++)
+            for (int tx = mn; tx < mx; tx++) {
               _drawTempEdge(
                 tx,
                 singleClickVy!,
@@ -210,10 +213,11 @@ class InputHandler {
                 isRightClickEraser,
                 ab == 8,
               );
+            }
           } else {
             final mn = math.min(vy, singleClickVy!),
                 mx = math.max(vy, singleClickVy!);
-            for (int ty = mn; ty < mx; ty++)
+            for (int ty = mn; ty < mx; ty++) {
               _drawTempEdge(
                 singleClickVx!,
                 ty,
@@ -222,6 +226,7 @@ class InputHandler {
                 isRightClickEraser,
                 ab == 8,
               );
+            }
           }
         }
       }
@@ -283,8 +288,9 @@ class InputHandler {
   }
 
   int get _activeBrush {
-    if (isRightClickEraser && ctrl.brushType != 7 && ctrl.brushType != 8)
+    if (isRightClickEraser && ctrl.brushType != 7 && ctrl.brushType != 8) {
       return 0;
+    }
     return ctrl.brushType;
   }
 
@@ -432,7 +438,9 @@ class InputHandler {
     if (ab == 3 || ab == 4) {
       final name = pendingName ?? await onNeedNameDialog(ab, null);
       if (name != null) {
-        for (final c in currentStrokeCells) c.name = name;
+        for (final c in currentStrokeCells) {
+          c.name = name;
+        }
       } else {
         ctrl.undo();
       }

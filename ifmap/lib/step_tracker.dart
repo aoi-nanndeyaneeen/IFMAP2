@@ -49,7 +49,6 @@ class StepTracker {
 
   // Barometer & GPS
   double? _refPressure;
-  double  _currentAlt = 0;
   double? _filteredPressure;
   Position? _currentGps;
 
@@ -170,19 +169,16 @@ class StepTracker {
     // 高度計算 (Hypsometric formula)
     // h = 44330 * (1 - (P/P0)^(1/5.255))
     final h = 44330 * (1 - pow(_filteredPressure! / _refPressure!, 1 / 5.255));
-    _currentAlt = h.toDouble();
     _altCtrl.add(h.toDouble());
   }
 
   void resetAltitude() {
     _refPressure = _filteredPressure;
-    _currentAlt = 0;
     _altCtrl.add(0.0);
   }
 
   // デバッグ用: 手動で値を注入する
   void debugInjectAltitude(double h) {
-    _currentAlt = h;
     _altCtrl.add(h);
   }
 

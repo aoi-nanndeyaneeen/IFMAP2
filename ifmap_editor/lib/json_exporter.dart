@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'platform_utils/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,7 +86,7 @@ class JsonExporter {
       }
 
       final editorData = {
-        'bgImageBase64': bgImageBytes != null ? base64Encode(bgImageBytes!) : null,
+        'bgImageBase64': bgImageBytes != null ? base64Encode(bgImageBytes) : null,
         'cells': grid.expand((row) => row).where((c) => c.type != 0 || c.name != null || c.wallTop || c.wallBottom || c.wallLeft || c.wallRight || c.doorTop || c.doorBottom || c.doorLeft || c.doorRight).map((c) => {
           'x': c.x, 'y': c.y, 'type': c.type,
           if (c.name != null) 'name': c.name,

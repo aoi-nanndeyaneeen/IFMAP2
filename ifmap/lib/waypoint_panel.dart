@@ -26,8 +26,9 @@ class WaypointPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (orderedGates.isEmpty && onArrived == null && crossFloorLabel == null)
+    if (orderedGates.isEmpty && onArrived == null && crossFloorLabel == null) {
       return const SizedBox.shrink();
+    }
     return Container(
       color: Colors.grey.shade50,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -82,9 +83,11 @@ class WaypointPanel extends StatelessWidget {
     if (g.key != nextGate?.key) return const SizedBox.shrink();
 
     Color btnColor = Colors.blue.shade600;
-    if (g.isDoor)
+    if (g.isDoor) {
       btnColor = Colors.orange.shade800;
-    else if (!g.isEnter) btnColor = Colors.teal.shade600;
+    } else if (!g.isEnter) {
+      btnColor = Colors.teal.shade600;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),

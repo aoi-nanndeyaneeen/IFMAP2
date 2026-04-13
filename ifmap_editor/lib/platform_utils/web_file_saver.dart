@@ -5,7 +5,7 @@ import 'stub_file_saver.dart';
 
 class WebFileSaver implements FileSaver {
   @override
-  Future<void> saveFile(String fileName, String content, Uint8List? bytes) async {
+  Future<void> saveFile(String fileName, String content, Uint8List? _) async {
     final blob = html.Blob([content], 'application/json');
     final url = html.Url.createObjectUrlFromBlob(blob);
     final anchor = html.AnchorElement(href: url)
