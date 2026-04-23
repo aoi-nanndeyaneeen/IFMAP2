@@ -80,6 +80,7 @@ class ToolPalette extends StatelessWidget {
         _typeBtn(4, '階段 (▲)',     Colors.green.shade600,   Icons.stairs),
         _typeBtn(5, '接続点 (⇄)',   Colors.deepPurple,       Icons.sync_alt),
         _typeBtn(6, '屋外(芝生)',   Colors.lightGreen.shade700, Icons.park),
+        _typeBtn(10, '建物 (装飾)', Colors.blueGrey,         Icons.apartment),
         const Divider(),
         _typeBtn(0, '消しゴム',     Colors.grey.shade400,    Icons.delete_outline),
         const Divider(),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'config.dart';
 import 'map_editor_controller.dart';
 import 'input_handler.dart';
 import 'editor_dialogs.dart';
@@ -48,8 +47,8 @@ class _EditorScreenState extends State<EditorScreen> {
 
   Future<ConnectorDialogResult?> _connectorDialog(String? oldName) {
     if (oldName != null) {
-      for (int y = 0; y < AppConfig.rows; y++) {
-        for (int x = 0; x < AppConfig.cols; x++) {
+      for (int y = 0; y < _ctrl.rows; y++) {
+        for (int x = 0; x < _ctrl.cols; x++) {
           final c = _ctrl.grid[y][x];
           if (c.type == 5 && c.name == oldName) {
             return EditorDialogs.showConnector(context, _ctrl,
@@ -85,7 +84,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _ctrl.saveHistory();
     try {
       final detector = AutoWallDetector.init(
-        _ctrl.bgImageBytes!, AppConfig.cols, AppConfig.rows);
+        _ctrl.bgImageBytes!, _ctrl.cols, _ctrl.rows);
       if (detector != null) {
         _ctrl.applyWalls(detector.detectWalls(1.0 - _ctrl.wallSensitivity));
         if (mounted) {
@@ -130,7 +129,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('マップエディタ ${AppConfig.cols}×${AppConfig.rows}マス',
+        title: Text('マップエディタ ${_ctrl.cols}×${_ctrl.rows}マス',
           style: const TextStyle(fontSize: 14)),
         backgroundColor: Colors.blueGrey,
         actions: [

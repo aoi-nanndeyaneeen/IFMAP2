@@ -15,6 +15,7 @@ dependencies:
   flutter_compass: ^0.8.1
   geolocator: ^10.1.0
   vector_math: ^2.2.0
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:
@@ -31,6 +32,7 @@ flutter:
     - assets/home/home_2F.json
     # - assets/map_newbldg_1f.json   # 新館を追加するときはコメントを外す
     # - assets/map_newbldg_2f.json
+    - assets/NITTC/NITTC_ground_1F.json
     - assets/NITTC/NITTC_1F.json
     - assets/NITTC/NITTC_2F.json
     - assets/NITTC/NITTC_3F.json

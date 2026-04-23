@@ -1,10 +1,12 @@
 // lib/config.dart
 class AppConfig {
   // マス目の数（ここで自由に変更できます）
-  static const int rows = 16;
-  static const int cols = 25;
+  static const int rows = 81;
+  static const int cols = 115;
 
-  //330,468
+  //330,468, nittc
+  //16,25, home
+  //81,115,nittc ground
   
   // 文字を何文字で改行するか
   static const int maxCharsPerLine = 8;
@@ -13,7 +15,7 @@ class AppConfig {
   // 出力されたJSONをifmapで読み込んだ時、1マスを何ピクセルの距離として配置するか
   static const int pxPerCell = 10;
   // 1マスが現実世界の何メートルか（ifmapで距離や時間を計算するために使用）
-  static const double metersPerCell = 0.5;
+  static const double metersPerCell = 4;
 
   // 【エディタ上のフォントサイズ・ラベル表示設定】
   // まとまった部屋の縦・横の短い方に対して、文字サイズが占める割合 (デフォルト: 0.4)

@@ -78,13 +78,13 @@ class MapPainter extends CustomPainter {
     final tilePaint = Paint();
     for (final c in cells) {
       if (c is! Map) continue;
-      final type = c['type'] as int? ?? 0;
+      final type = (c['type'] as num?)?.toInt() ?? 0;
       if (type == 0) continue;
 
       final x = (c['x'] as num).toDouble() * AppConfig.pxPerCell;
       final y = (c['y'] as num).toDouble() * AppConfig.pxPerCell;
 
-      tilePaint.color = _getColorForType(type, currentLabel);
+      tilePaint.color = _getColorForCell(c, currentLabel);
       offscreenCanvas.drawRect(Rect.fromLTWH(x, y, 10, 10), tilePaint);
     }
 
@@ -95,15 +95,22 @@ class MapPainter extends CustomPainter {
       _drawBorders(offscreenCanvas, n);
     }
 
-    // 5. 部屋名
+    // 5. 部屋名（接続点は隠蚢）
     for (final r in rooms) {
       if (r is! Map) continue;
       final name = r['name'] as String?;
       final cx = (r['centerX'] as num?)?.toDouble();
       final cy = (r['centerY'] as num?)?.toDouble();
-      if (name != null && cx != null && cy != null) {
-        _drawText(offscreenCanvas, name, Offset(cx, cy));
+      if (name == null || cx == null || cy == null) continue;
+      // 接続点はノードに connectsToMap があるか判定（ラベル非表示）
+      bool isConnector = false;
+      for (final n in nodes.values) {
+        if (n is Map && n['name'] == name && n['connectsToMap'] != null) {
+          isConnector = true;
+          break;
+        }
       }
+      if (!isConnector) _drawText(offscreenCanvas, name, Offset(cx, cy));
     }
 
     final picture = recorder.endRecording();
@@ -328,18 +335,30 @@ class MapPainter extends CustomPainter {
     }
   }
 
-  Color _getColorForType(int type, String floor) {
+  Color _getColorForCell(Map c, String floor) {
+    final type = (c['type'] as num?)?.toInt() ?? 0;
     switch (type) {
       case 1:
         return Colors.white;
       case 3:
-        return Colors.orange.shade50; // ちょっと見やすく
+        // エディタと同じ、名前のハッシュ値から黄色系の色を生成
+        final name = c['name'] as String?;
+        if (name == null || name.isEmpty) {
+          return const Color.fromARGB(89, 251, 192, 45); // デフォルト黄色
+        }
+        final hash = name.hashCode;
+        final hue = 35.0 + ((hash.abs() % 100) / 100.0) * 20.0;
+        final sat = 0.6 + ((hash.abs() ~/ 100) % 40) / 100.0;
+        final lit = 0.45 + ((hash.abs() ~/ 10000) % 20) / 100.0;
+        return HSLColor.fromAHSL(0.5, hue, sat, lit).toColor();
       case 4:
         return Colors.brown.shade100;
       case 5:
-        return Colors.purple.shade100;
+        return Colors.deepPurple.withValues(alpha: 0.45);
       case 6:
         return floor.contains('1F') ? Colors.lightGreen.shade200 : Colors.white;
+      case 10:
+        return Colors.blueGrey.withValues(alpha: 0.5);
       default:
         return Colors.transparent;
     }

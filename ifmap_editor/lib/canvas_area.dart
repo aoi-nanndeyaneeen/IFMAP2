@@ -31,21 +31,25 @@ class CanvasArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // グリッドの実際のサイズを取得
+    final int rows = grid.length;
+    final int cols = grid.isNotEmpty ? grid[0].length : 0;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        double baseCellWidth = constraints.maxWidth / AppConfig.cols;
-        double baseCellHeight = constraints.maxHeight / AppConfig.rows;
+        double baseCellWidth = constraints.maxWidth / cols;
+        double baseCellHeight = constraints.maxHeight / rows;
         double baseSize = baseCellWidth < baseCellHeight ? baseCellWidth : baseCellHeight;
         if (baseSize < 20.0) baseSize = 20.0;
 
         double cellSize = baseSize;
-        double totalWidth = cellSize * AppConfig.cols;
-        double totalHeight = cellSize * AppConfig.rows;
+        double totalWidth = cellSize * cols;
+        double totalHeight = cellSize * rows;
 
         void resolvePointer(PointerEvent event, Function(int, int, int, Offset, Offset, double) action) {
           int x = (event.localPosition.dx / cellSize).floor();
           int y = (event.localPosition.dy / cellSize).floor();
-          if (x >= 0 && x < AppConfig.cols && y >= 0 && y < AppConfig.rows) action(y, x, event.buttons, event.localPosition, event.position, cellSize);
+          if (x >= 0 && x < cols && y >= 0 && y < rows) action(y, x, event.buttons, event.localPosition, event.position, cellSize);
         }
 
         List<Widget> roomWidgets = [];
@@ -87,12 +91,11 @@ class CanvasArea extends StatelessWidget {
 
           roomWidgets.add(
             Positioned(
-              left: centerX - groupWidth / 2,
-              top: centerY - groupHeight / 2,
-              width: groupWidth,
-              height: groupHeight,
-              child: IgnorePointer(
-                child: Center(
+              left: centerX,
+              top: centerY,
+              child: FractionalTranslation(
+                translation: const Offset(-0.5, -0.5),
+                child: IgnorePointer(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
@@ -207,8 +210,8 @@ class GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    int rows = AppConfig.rows;
-    int cols = AppConfig.cols;
+    int rows = grid.length;
+    int cols = grid.isNotEmpty ? grid[0].length : 0;
 
     final Paint borderPaint = Paint()
       ..color = Colors.grey[500]!

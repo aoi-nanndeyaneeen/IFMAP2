@@ -32,6 +32,15 @@ class AppConfig {
   static const List<MapSection> mapSections = [
     // --- NITTC 本棟 ---
     MapSection(
+      path: 'assets/NITTC/NITTC_ground_1F.json',
+      label: 'NITTC_ground_1F',
+      floorLevel: 1,
+      anchorLat: 35.151,
+      anchorLng: 136.924,
+      anchorX: 1440,
+      anchorY: 1870,
+    ),
+    MapSection(
       path: 'assets/NITTC/NITTC_1F.json',
       label: 'NITTC_1F',
       floorLevel: 1,
@@ -82,7 +91,7 @@ class AppConfig {
   static const double mapNorthDegrees = -90.0;
 
   // ── マップ描画 ─────────────────────────────────────────────────
-  static const double mapCanvasSize     = 2000.0;
+  static const double mapCanvasSize     = 6000.0;
   static const double focusScale        = 1.8;
   static const double focusVerticalRatio = 0.5;
 

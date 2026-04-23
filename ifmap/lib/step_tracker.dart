@@ -23,6 +23,7 @@ class GateInfo {
   String get label {
     final name = (id == '扉' || id.startsWith('node_')) ? (isDoor ? '扉' : '外') : id;
     if (isDoor) return '扉を通る';
+    if (name == '接続点') return '接続点に到達';
     if (name == '建物' && isEnter) return '建物に入る';
     if (name == '外' && !isEnter) return '外に出る';
     if (isEnter) return '「$name」に入る';
@@ -235,7 +236,9 @@ class StepTracker {
         if (!isOutdoorA && isOutdoorB) {
             _tryAdd(GateInfo('外', isEnter: false, px: halfwayPx), halfwayPx);
         } else if (isOutdoorA && !isOutdoorB) {
-            if (typeB == 1) {
+            if (nodeB['isConnector'] == true || typeB == 5) {
+                _tryAdd(GateInfo('接続点', isEnter: true, px: halfwayPx), halfwayPx);
+            } else {
                 _tryAdd(GateInfo('建物', isEnter: true, px: halfwayPx), halfwayPx);
             }
         }

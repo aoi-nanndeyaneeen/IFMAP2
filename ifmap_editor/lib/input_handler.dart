@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'config.dart';
 import 'map_cell.dart';
 import 'map_editor_controller.dart';
 
@@ -85,9 +84,9 @@ class InputHandler {
     final gridBox = gridKey.currentContext?.findRenderObject() as RenderBox?;
     if (gridBox != null) {
       final ul = gridBox.globalToLocal(_globalPointer!);
-      final cs = gridBox.size.width / AppConfig.cols;
+      final cs = gridBox.size.width / ctrl.cols;
       final gx = (ul.dx / cs).floor(), gy = (ul.dy / cs).floor();
-      if (gx >= 0 && gx < AppConfig.cols && gy >= 0 && gy < AppConfig.rows) {
+      if (gx >= 0 && gx < ctrl.cols && gy >= 0 && gy < ctrl.rows) {
         _applyMove(gy, gx, _buttons, ul, cs);
       }
     }
@@ -129,12 +128,40 @@ class InputHandler {
     _scratchpad.clear();
   }
 
+  void _floodFill(int startX, int startY, int type, String? name, String? cMap, String? cNode) {
+    final targetType = ctrl.grid[startY][startX].type;
+    if (targetType == type) return;
+
+    final queue = [[startX, startY]];
+    final visited = List.generate(ctrl.rows, (_) => List.filled(ctrl.cols, false));
+    visited[startY][startX] = true;
+
+    while (queue.isNotEmpty) {
+      final p = queue.removeAt(0);
+      final x = p[0], y = p[1];
+      
+      ctrl.grid[y][x] = MapCell(
+        x: x, y: y, type: type, name: name,
+        connectsToMap: cMap, connectsToNode: cNode,
+      );
+
+      for (final d in [[-1,0],[1,0],[0,-1],[0,1]]) {
+        final nx = x + d[0], ny = y + d[1];
+        if (nx >= 0 && nx < ctrl.cols && ny >= 0 && ny < ctrl.rows &&
+            !visited[ny][nx] && ctrl.grid[ny][nx].type == targetType) {
+          visited[ny][nx] = true;
+          queue.add([nx, ny]);
+        }
+      }
+    }
+  }
+
   // ───────────────────── 壁 / 扉描画 ───────────────────────
   void _drawTempEdge(int x1, int y1, int x2, int y2, bool erase, bool door) {
     final g = ctrl.grid;
     if (x1 == x2) {
       final y = math.min(y1, y2);
-      if (y >= 0 && y < AppConfig.rows && x1 > 0 && x1 < AppConfig.cols) {
+      if (y >= 0 && y < ctrl.rows && x1 > 0 && x1 < ctrl.cols) {
         _pushScratchpad(y, x1);
         _pushScratchpad(y, x1 - 1);
         if (erase) {
@@ -156,7 +183,7 @@ class InputHandler {
       }
     } else {
       final x = math.min(x1, x2);
-      if (x >= 0 && x < AppConfig.cols && y1 > 0 && y1 < AppConfig.rows) {
+      if (x >= 0 && x < ctrl.cols && y1 > 0 && y1 < ctrl.rows) {
         _pushScratchpad(y1, x);
         _pushScratchpad(y1 - 1, x);
         if (erase) {
@@ -185,8 +212,8 @@ class InputHandler {
     // 屋外フィールド(type 6)は灎りツール不要
 
     if (ab == 7 || ab == 8) {
-      final vx = (local.dx / cs).round().clamp(0, AppConfig.cols);
-      final vy = (local.dy / cs).round().clamp(0, AppConfig.rows);
+      final vx = (local.dx / cs).round().clamp(0, ctrl.cols);
+      final vy = (local.dy / cs).round().clamp(0, ctrl.rows);
       if (singleClickVx != null) {
         _restoreScratchpad();
         if (vx == singleClickVx && vy == singleClickVy) {
@@ -265,7 +292,7 @@ class InputHandler {
       ctrl.grid[y - 1][x].wallBottom = false;
       ctrl.grid[y - 1][x].doorBottom = false;
     }
-    if (y < AppConfig.rows - 1 &&
+    if (y < ctrl.rows - 1 &&
         currentStrokeCells.contains(ctrl.grid[y + 1][x])) {
       c.wallBottom = false;
       c.doorBottom = false;
@@ -278,7 +305,7 @@ class InputHandler {
       ctrl.grid[y][x - 1].wallRight = false;
       ctrl.grid[y][x - 1].doorRight = false;
     }
-    if (x < AppConfig.cols - 1 &&
+    if (x < ctrl.cols - 1 &&
         currentStrokeCells.contains(ctrl.grid[y][x + 1])) {
       c.wallRight = false;
       c.doorRight = false;
@@ -314,8 +341,8 @@ class InputHandler {
 
     if (ab == 7 || ab == 8) {
       final dx = local.dx % cs, dy = local.dy % cs;
-      final cx = (local.dx / cs).floor().clamp(0, AppConfig.cols - 1);
-      final cy = (local.dy / cs).floor().clamp(0, AppConfig.rows - 1);
+      final cx = (local.dx / cs).floor().clamp(0, ctrl.cols - 1);
+      final cy = (local.dy / cs).floor().clamp(0, ctrl.rows - 1);
       final dTop = dy, dBottom = cs - dy, dLeft = dx, dRight = cs - dx;
       final minD = math.min(math.min(dTop, dBottom), math.min(dLeft, dRight));
       if (minD == dTop) {
@@ -339,8 +366,8 @@ class InputHandler {
         singleEdgeX2 = cx + 1;
         singleEdgeY2 = cy + 1;
       }
-      singleClickVx = (local.dx / cs).round().clamp(0, AppConfig.cols);
-      singleClickVy = (local.dy / cs).round().clamp(0, AppConfig.rows);
+      singleClickVx = (local.dx / cs).round().clamp(0, ctrl.cols);
+      singleClickVy = (local.dy / cs).round().clamp(0, ctrl.rows);
       _scratchpad.clear();
       _drawTempEdge(
         singleEdgeX1!,
@@ -363,15 +390,19 @@ class InputHandler {
       }
     }
 
-    if (isRightClickEraser || ctrl.drawMode == 'stroke') {
-      currentStrokeCells.add(ctrl.grid[y][x]);
-      // 塗りモード: 空白(type 0)のみ変更
-      if (ctrl.fillMode && ctrl.grid[y][x].type != 0 && ab != 0) {
-        ctrl.notify();
-        return;
+    if (isRightClickEraser || ctrl.drawMode == 'stroke' || ctrl.drawMode == 'fill') {
+      if (ctrl.drawMode == 'fill') {
+        _floodFill(x, y, ab, pendingName, pendingConnectsToMap, pendingConnectsToNode);
+      } else {
+        currentStrokeCells.add(ctrl.grid[y][x]);
+        // 塗りモード: 空白(type 0)のみ変更
+        if (ctrl.fillMode && ctrl.grid[y][x].type != 0 && ab != 0) {
+          ctrl.notify();
+          return;
+        }
+        ctrl.grid[y][x].type = ab;
+        if (ab == 0) _eraseCell(y, x);
       }
-      ctrl.grid[y][x].type = ab;
-      if (ab == 0) _eraseCell(y, x);
       ctrl.notify();
     } else {
       dragStartX = x;
@@ -515,8 +546,8 @@ class InputHandler {
       final res = await onNeedConnectorDialog(oldName);
       if (res == null) return;
       ctrl.saveHistory();
-      for (int yy = 0; yy < AppConfig.rows; yy++) {
-        for (int xx = 0; xx < AppConfig.cols; xx++) {
+      for (int yy = 0; yy < ctrl.rows; yy++) {
+        for (int xx = 0; xx < ctrl.cols; xx++) {
           final cell = ctrl.grid[yy][xx];
           if (cell.type == 5 && cell.name == oldName) {
             cell.name = res.name;
@@ -529,8 +560,8 @@ class InputHandler {
       final name = await onNeedNameDialog(type, oldName);
       if (name == null) return;
       ctrl.saveHistory();
-      for (int yy = 0; yy < AppConfig.rows; yy++) {
-        for (int xx = 0; xx < AppConfig.cols; xx++) {
+      for (int yy = 0; yy < ctrl.rows; yy++) {
+        for (int xx = 0; xx < ctrl.cols; xx++) {
           if (ctrl.grid[yy][xx].type == type &&
               ctrl.grid[yy][xx].name == oldName) {
             ctrl.grid[yy][xx].name = name;

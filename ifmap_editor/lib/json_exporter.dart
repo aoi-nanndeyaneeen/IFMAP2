@@ -28,8 +28,11 @@ class JsonExporter {
 
     Future.microtask(() {
       final nodes = <String, dynamic>{};
-      for (int y = 0; y < AppConfig.rows; y++) {
-        for (int x = 0; x < AppConfig.cols; x++) {
+      final int rows = grid.length;
+      final int cols = grid.isNotEmpty ? grid[0].length : 0;
+
+      for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
           final cell = grid[y][x];
           // isWalkableに type 6(屋外)も含まれる。空白(type 0)は絶対に含めない。
           if (!cell.isWalkable) continue;
@@ -52,7 +55,7 @@ class JsonExporter {
             bool canPassA = isOutdoorCell ? true : (!cell.isWall(dir) || cell.isDoor(dir));
             if (!canPassA) continue;
 
-            if (ny >= 0 && ny < AppConfig.rows && nx >= 0 && nx < AppConfig.cols) {
+            if (ny >= 0 && ny < rows && nx >= 0 && nx < cols) {
               final nCell = grid[ny][nx];
               if (!nCell.isWalkable) continue;
               bool isNeighborOutdoor = nCell.type == 6;
@@ -101,18 +104,16 @@ class JsonExporter {
           if (c.doorLeft) 'doorLeft': true,
           if (c.doorRight) 'doorRight': true,
         }).toList(),
+        'rows': rows,
+        'cols': cols,
       };
 
       // 部屋の中心点を計算して追加
       final roomCoords = <String, List<Offset>>{};
       for (final row in grid) {
         for (final c in row) {
-          final name = c.name;
-          if (name != null && name.isNotEmpty) {
-            // 部屋(type 3)だけでなく階段(type 4)もラベル対象に含める
-            if (c.type == 3 || c.type == 4 || c.isWalkable) {
-              roomCoords.putIfAbsent(name, () => []).add(Offset(c.x.toDouble(), c.y.toDouble()));
-            }
+          if (c.name != null && c.name!.isNotEmpty && c.type != 5 && c.type != 10) {
+            roomCoords.putIfAbsent(c.name!, () => []).add(Offset(c.x.toDouble(), c.y.toDouble()));
           }
         }
       }

@@ -24,14 +24,24 @@ class MapCell {
            this.wallTop = false, this.wallRight = false, this.wallBottom = false, this.wallLeft = false,
            this.doorTop = false, this.doorRight = false, this.doorBottom = false, this.doorLeft = false});
 
-  Color get color => switch (type) {
-    1 => Colors.blue.withValues(alpha: 0.25),
-    3 => Colors.yellow.shade600.withValues(alpha: 0.35),
-    4 => Colors.green.withValues(alpha: 0.45),
-    5 => Colors.deepPurple.withValues(alpha: 0.45),
-    6 => Colors.lightGreen.withValues(alpha: 0.45), // 屋外フィールド
-    _ => Colors.transparent,
-  };
+  Color get color {
+    switch (type) {
+      case 1: return Colors.blue.withValues(alpha: 0.25);
+      case 3: 
+        if (name == null || name!.isEmpty) return Colors.yellow.shade600.withValues(alpha: 0.35);
+        final hash = name.hashCode;
+        // 黄色〜オレンジの範囲に限定 (Hue: 35 - 55)
+        final hue = 35.0 + ((hash.abs() % 100) / 100.0) * 20.0;
+        final sat = 0.6 + ((hash.abs() ~/ 100) % 40) / 100.0; 
+        final lit = 0.45 + ((hash.abs() ~/ 10000) % 20) / 100.0; 
+        return HSLColor.fromAHSL(0.35, hue, sat, lit).toColor();
+      case 4: return Colors.green.withValues(alpha: 0.45);
+      case 5: return Colors.deepPurple.withValues(alpha: 0.45);
+      case 6: return Colors.lightGreen.withValues(alpha: 0.45);
+      case 10: return Colors.blueGrey.withValues(alpha: 0.5); // 装飾用（建物外観など）
+      default: return Colors.transparent;
+    }
+  }
 
   bool get isWalkable => type == 1 || type == 3 || type == 4 || type == 5 || type == 6;
  

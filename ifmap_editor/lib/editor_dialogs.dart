@@ -58,7 +58,6 @@ class EditorDialogs {
     String? initialNode,
   }) async {
     final nc = TextEditingController(text: initialName ?? '');
-    final mc = TextEditingController(text: initialMap  ?? '');
     final oc = TextEditingController(text: initialNode ?? '');
     ConnectorDialogResult? result;
 
@@ -66,16 +65,15 @@ class EditorDialogs {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('⇄ 接続点の設定'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: nc, autofocus: true,
-            decoration: const InputDecoration(labelText: 'このノードの名前')),
-          const SizedBox(height: 8),
-          TextField(controller: mc,
-            decoration: const InputDecoration(labelText: '接続先マップのラベル', hintText: '例: 2F')),
-          const SizedBox(height: 8),
-          TextField(controller: oc,
-            decoration: const InputDecoration(labelText: '接続先ノードID', hintText: '例: connector_from_1f')),
-        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: nc, autofocus: true,
+              decoration: const InputDecoration(labelText: 'このノードの名前')),
+            const SizedBox(height: 8),
+            TextField(controller: oc,
+              decoration: const InputDecoration(labelText: '接続先ノードID', hintText: '例: connector_from_1f')),
+          ]),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
           ElevatedButton(
@@ -88,7 +86,7 @@ class EditorDialogs {
               }
               result = ConnectorDialogResult(
                 name: nc.text,
-                connectsToMap:  mc.text.isNotEmpty ? mc.text : null,
+                connectsToMap: null,
                 connectsToNode: oc.text.isNotEmpty ? oc.text : null,
               );
               Navigator.pop(context);
