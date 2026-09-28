@@ -235,6 +235,10 @@ class _MapScreenState extends State<MapScreen> {
   /// 「方位を有効にする」ボタンを出す。ネイティブでは常に false。
   bool _needsSensorPermission = false;
 
+  /// 許可は通ったのにイベントが来ないブラウザ（iOS版Chromeなど WKWebView 系）
+  /// だと判断した状態。ボタンの代わりに案内文を出す。
+  bool _headingUnavailable = false;
+
   final _tx = TransformationController();
   final _mapKey = GlobalKey();
 
@@ -302,6 +306,7 @@ class _MapScreenState extends State<MapScreen> {
     final granted = await requestSensorPermission();
     if (!mounted) return;
     setState(() => _needsSensorPermission = !granted);
+
     if (!granted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -310,7 +315,15 @@ class _MapScreenState extends State<MapScreen> {
           backgroundColor: Colors.orange,
         ),
       );
+      return;
     }
+
+    // 許可が通ってもイベントが来ないブラウザがある（iOS版Chrome等の
+    // WKWebView 系は deviceorientation を配信しない）。少し待って
+    // 1件も来なければ案内に切り替える。
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (!mounted || _headingNotifier.value != null) return;
+    setState(() => _headingUnavailable = true);
   }
 
   @override
@@ -904,6 +917,9 @@ class _MapScreenState extends State<MapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // ★ コンパスの生の状態。方位が出ないときここを見る。
+                const _SensorDiagnosticsView(),
+                const Divider(height: 24),
                 ValueListenableBuilder<double>(
                   valueListenable: _altNotifier,
                   builder: (ctx, altVal, _) => Text('Current Relative Alt: ${altVal.toStringAsFixed(2)} m'),
@@ -1085,7 +1101,13 @@ class _MapScreenState extends State<MapScreen> {
                       heading: heading,
                       routeAngleRad: _routeAngle,
                       // Web で許可待ちのときだけボタンが出る
-                      onEnable: _needsSensorPermission ? _enableSensors : null,
+                      onEnable: (_needsSensorPermission && !_headingUnavailable)
+                          ? _enableSensors
+                          : null,
+                      unavailableNote: _headingUnavailable
+                          ? 'このブラウザは方位を取得できません。Safariで開き、'
+                              '「ホーム画面に追加」したアイコンから起動してください'
+                          : null,
                     ),
                   ),
                 ),
@@ -1367,6 +1389,53 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// コンパスの生の状態を出すデバッグ表示。0.5秒ごとに更新する。
+/// 「許可は通ったのかどうか」「イベントが来ているのかどうか」を
+/// 端末上で切り分けるためのもの。
+class _SensorDiagnosticsView extends StatefulWidget {
+  const _SensorDiagnosticsView();
+
+  @override
+  State<_SensorDiagnosticsView> createState() => _SensorDiagnosticsViewState();
+}
+
+class _SensorDiagnosticsViewState extends State<_SensorDiagnosticsView> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final diag = sensorDiagnostics();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('コンパス診断',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        // 1項目1行。長い userAgent も折り返して全部読めるようにする。
+        for (final e in diag.entries)
+          SelectableText(
+            '${e.key}: ${e.value}',
+            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+          ),
+      ],
     );
   }
 }

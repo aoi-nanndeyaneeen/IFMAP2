@@ -12,6 +12,13 @@ import 'dart:js_interop_unsafe';
 
 final _controller = StreamController<double>.broadcast();
 
+// ── 診断用。方位が取れないときの原因切り分けに使う ──────────────
+int _eventCount = 0;
+String _lastPermissionResult = 'not requested';
+String _lastWebkitHeading = 'never seen';
+String _lastAbsolute = 'never seen';
+String _lastAlpha = 'never seen';
+
 JSFunction? _listener;
 
 /// iOS で許可を得たあとに listener を張り直す必要があるため、
@@ -59,13 +66,18 @@ Future<bool> requestSensorPermission() async {
 }
 
 Future<bool> _request(JSObject? cls) async {
-  if (cls == null || !cls.has('requestPermission')) return true;
+  if (cls == null || !cls.has('requestPermission')) {
+    // requestPermission が無いブラウザは許可不要。そのまま流れてくる。
+    return true;
+  }
   try {
     final promise = cls.callMethod<JSPromise<JSString>>('requestPermission'.toJS);
     final result = (await promise.toDart).toDart;
+    _lastPermissionResult = result;
     return result == 'granted';
-  } catch (_) {
+  } catch (e) {
     // 非セキュアコンテキストや未対応ブラウザ。イベントが来ないだけなので潰す。
+    _lastPermissionResult = 'threw: $e';
     return false;
   }
 }
@@ -91,8 +103,11 @@ void _detach() {
 }
 
 void _onOrientation(JSObject event) {
+  _eventCount++;
+
   // iOS: 磁北から時計回りの方位角がそのまま入っている
   final webkit = event.getProperty<JSNumber?>('webkitCompassHeading'.toJS);
+  _lastWebkitHeading = webkit == null ? 'null' : webkit.toDartDouble.toStringAsFixed(1);
   if (webkit != null) {
     _controller.add(webkit.toDartDouble % 360);
     return;
@@ -101,8 +116,50 @@ void _onOrientation(JSObject event) {
   // Android等: alpha は「上辺が北のとき0」で反時計回りなので反転する。
   // absolute が false の相対値は北の基準がないので方位としては使えない。
   final absolute = event.getProperty<JSBoolean?>('absolute'.toJS)?.toDart ?? false;
-  if (!absolute) return;
   final alpha = event.getProperty<JSNumber?>('alpha'.toJS);
-  if (alpha == null) return;
+  _lastAbsolute = '$absolute';
+  _lastAlpha = alpha == null ? 'null' : alpha.toDartDouble.toStringAsFixed(1);
+
+  if (!absolute || alpha == null) return;
   _controller.add((360 - alpha.toDartDouble) % 360);
+}
+
+String _stringProp(String path) {
+  try {
+    final v = globalContext.getProperty<JSAny?>(path.toJS);
+    return v == null ? 'null' : v.dartify().toString();
+  } catch (_) {
+    return 'unavailable';
+  }
+}
+
+Map<String, String> sensorDiagnostics() {
+  final orientation = _orientationEventClass;
+  final motion = _motionEventClass;
+  return {
+    'implementation': 'DeviceOrientationEvent (web)',
+    'isSecureContext': _stringProp('isSecureContext'),
+    'DeviceOrientationEvent': orientation == null ? 'MISSING' : 'present',
+    '  .requestPermission': orientation != null && orientation.has('requestPermission')
+        ? 'present'
+        : 'MISSING',
+    'DeviceMotionEvent': motion == null ? 'MISSING' : 'present',
+    'lastPermissionResult': _lastPermissionResult,
+    'listenerAttached': '$_attached',
+    'rawEventCount': '$_eventCount',
+    'last webkitCompassHeading': _lastWebkitHeading,
+    'last absolute': _lastAbsolute,
+    'last alpha': _lastAlpha,
+    'userAgent': _userAgent(),
+  };
+}
+
+String _userAgent() {
+  try {
+    final nav = globalContext['navigator'] as JSObject?;
+    final ua = nav?.getProperty<JSString?>('userAgent'.toJS);
+    return ua?.toDart ?? 'unknown';
+  } catch (_) {
+    return 'unknown';
+  }
 }

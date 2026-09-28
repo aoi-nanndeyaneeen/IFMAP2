@@ -21,3 +21,8 @@ bool needsSensorPermission() => impl.needsSensorPermission();
 /// （iOS Safari はユーザー操作外からの呼び出しを拒否する）。
 /// 方位(DeviceOrientationEvent)と加速度(DeviceMotionEvent)をまとめて要求する。
 Future<bool> requestSensorPermission() => impl.requestSensorPermission();
+
+/// センサーの生の状態。方位が取れないときの原因切り分け用にデバッグ画面へ出す。
+/// 「許可は通っているがイベントが来ない」のか「許可が取れていない」のかを
+/// 端末上で見分けるために使う。
+Map<String, String> sensorDiagnostics() => impl.sensorDiagnostics();

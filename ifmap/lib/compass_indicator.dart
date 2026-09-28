@@ -13,11 +13,16 @@ class CompassIndicator extends StatelessWidget {
   /// Web でブラウザのセンサー許可がまだ取れていないときだけ渡される。
   final Future<void> Function()? onEnable;
 
+  /// 方位が取得できないと判明したときの案内文。設定すると [onEnable] の
+  /// ボタンではなくこの文が出る。
+  final String? unavailableNote;
+
   const CompassIndicator({
     super.key,
     this.heading,
     this.routeAngleRad,
     this.onEnable,
+    this.unavailableNote,
   });
 
   @override
@@ -36,6 +41,14 @@ class CompassIndicator extends StatelessWidget {
                 heading != null ? '${heading!.toStringAsFixed(0)}° (磁北から)' : 'コンパス取得中...',
                 style: TextStyle(fontSize: 11, color: Colors.indigo.shade700),
               ),
+              if (heading == null && unavailableNote != null)
+                Text(
+                  unavailableNote!,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepOrange.shade700),
+                ),
               if (heading == null && onEnable != null)
                 // iOS Safari はユーザー操作起点でないと許可を求められないのでボタンにする
                 SizedBox(
