@@ -24,12 +24,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      # Pages をまだ有効化していなくても、ここで自動的に有効化される
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      # Pages の有効化は GITHUB_TOKEN では出来ないので、リポジトリの
+      # Settings > Pages > Source を "GitHub Actions" に一度だけ手動設定する。
+      - uses: actions/checkout@v5
 
       - uses: subosito/flutter-action@v2
         with:
