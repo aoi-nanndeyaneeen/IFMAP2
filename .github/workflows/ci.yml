@@ -1,0 +1,53 @@
+# push / PR のたびに解析とテストを回す。
+# deploy.yml はこれが通ってから動くので、壊れたものが Pages に出ない。
+name: CI
+
+on:
+  push:
+    branches: [main]
+    # deploy.yml が動くパスは、そちらが workflow_call でこのCIを
+    # ゲートとして呼ぶ。ここで重ねて起動すると同じCIが2回走るので除外する。
+    # 逆に ifmap_editor だけの変更は deploy.yml が動かないため、
+    # このトリガーで拾う必要がある。
+    paths-ignore:
+      - 'ifmap/**'
+      - '.github/workflows/**'
+  pull_request:
+  workflow_call: # deploy.yml から呼ばれる
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ifmap, ifmap_editor]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4' # ローカルと揃える
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        working-directory: ${{ matrix.project }}
+        run: flutter pub get
+
+      - name: flutter analyze
+        working-directory: ${{ matrix.project }}
+        run: flutter analyze
+
+      # ifmap_editor にはまだテストがないので、あるときだけ回す。
+      - name: flutter test
+        working-directory: ${{ matrix.project }}
+        run: |
+          if [ -d test ]; then
+            flutter test
+          else
+            echo "test/ がないのでスキップ"
+          fi

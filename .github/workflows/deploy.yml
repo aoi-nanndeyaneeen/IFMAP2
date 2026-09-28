@@ -8,6 +8,7 @@ on:
     paths:
       - 'ifmap/**'
       - '.github/workflows/deploy.yml'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:   # 手動実行用（Actionsタブから押せる）
 
 permissions:
@@ -21,7 +22,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 解析とテストが通らないものは公開しない。
+  check:
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       # Pages の有効化は GITHUB_TOKEN では出来ないので、リポジトリの
