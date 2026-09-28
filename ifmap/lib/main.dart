@@ -1,5 +1,7 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'map_screen.dart'; // 分割した画面ファイルを読み込む
+
+import 'ui/map_screen.dart';
 
 void main() {
   runApp(const IfMapApp());
@@ -16,7 +18,7 @@ class IfMapApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const MapScreen(), // MapScreenを呼び出すだけ
+      home: const MapScreen(),
     );
   }
 }

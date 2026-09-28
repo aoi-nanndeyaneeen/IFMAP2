@@ -1,7 +1,7 @@
 // lib/compass_indicator.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'config.dart';
+import '../config.dart';
 
 /// コンパス表示 + 初動方向案内ウィジェット（Stateless）
 /// heading と routeAngleRad を外から受け取るだけでよい

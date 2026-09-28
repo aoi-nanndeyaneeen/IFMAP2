@@ -23,7 +23,12 @@ GPSが届かない屋内空間でも、QRコードをスキャンするだけで
 
 ### 2. `ifmap` (ナビゲーションアプリ / スマホ・Web向け)
 利用者が実際に使用するナビゲーションアプリです。
-* **機能**: マップの描画、QRスキャナー（カメラ起動）、目的地選択プルダウン、フロア切り替え、最短ルートの描画、現在地への自動ズーム。
+* **機能**: マップの描画、QRスキャナー（カメラ起動）、目的地検索、フロア切り替え、最短ルートの描画、現在地への自動ズーム。
+
+### 設計メモ
+なぜこの作りなのか、どこを触れば何が変わるかは
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** にまとめてあります。
+座標系・JSONの形・通知の出し分け・既知の弱点もここです。
 
 ---
 
@@ -33,14 +38,21 @@ GPSが届かない屋内空間でも、QRコードをスキャンするだけで
 1. エディタをPCで起動します。
 2. 「見取り図を読込」ボタンから、建物の平面図（画像）を読み込みます。
 3. ペンツールを使って、歩ける場所（青）、目的地・部屋（黄）、階段（緑）を塗っていきます。
-4. 「JSON出力」ボタンを押し、出力されたデータをコピーします。
-5. `ifmap/assets/` フォルダ内に `map_1f.json` や `map_2f.json` として保存します。
+4. 「JSON出力」ボタンを押し、JSONファイルを保存します。
+5. `ifmap/assets/<建物名>/` フォルダに置きます（例: `ifmap/assets/NITTC/NITTC_1F.json`）。
+6. `ifmap/lib/config.dart` の `mapSections` にエントリを1行足します。
+   `pubspec.yaml` はディレクトリ単位で登録しているので編集不要です。
+
+> 階段でフロアをつなぐときは、**両方のフロアで階段に同じ名前を付けてください**。
+> 名前が一致する階段どうしが自動で対応づけられます。
 
 ### Step 2: ナビゲーションの利用 (`ifmap`)
 1. アプリを起動するか、デプロイされたWeb版のURLにアクセスします。
 2. スマホのカメラで、各部屋に設置されたQRコードをスキャンします。
    *(※ Web版の場合は `https://[あなたのURL]/?start=room_name` のようなURLをQRコード化しておくと、スキャンと同時にアプリが起動し現在地が設定されます)*
-3. 画面上のプルダウンから目的地を選択すると、現在地からのルートが描画されます！
+3. マップをタップするか、右上の一覧ボタンから目的地を選ぶとルートが描画されます。
+4. 部屋の出入口や扉に来たら、画面下のチェックポイントをタップします。
+   歩数だけだと位置がずれていくので、ここで現在地を確定させています。
 
 ---
 
@@ -69,6 +81,16 @@ flutter run
 cd ../ifmap_editor
 flutter pub get
 flutter run -d windows # または -d chrome, -d macos
+```
+
+### 解析とテスト
+`main` への push / PR で自動的に走ります（[.github/workflows/ci.yml](.github/workflows/ci.yml)）。
+手元でも同じものが回せます。
+
+```bash
+cd ifmap
+flutter analyze
+flutter test
 
 ---
 
@@ -79,7 +101,8 @@ Mac も Apple Developer 登録も不要です。
 
 * 公開URL: `https://aoi-nanndeyaneeen.github.io/IFMAP2/`
 * ワークフロー: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
-* `ifmap/` 配下を変更して push → 2〜4分で公開版が更新される（手動実行は Actions タブの "Run workflow" から）
+* `ifmap/` 配下を変更して push → 解析とテストが通れば 2〜4分で公開版が更新される
+  （手動実行は Actions タブの "Run workflow" から）
 
 ### iPhone側の初回セットアップ
 1. **Safari** で上記URLを開く（Chrome ではホーム画面追加ができない）

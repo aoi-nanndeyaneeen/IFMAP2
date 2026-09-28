@@ -14,25 +14,17 @@ dependencies:
   sensors_plus: 7.0.0
   flutter_compass: ^0.8.1
   geolocator: ^10.1.0
-  vector_math: ^2.2.0
   collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
   assets:
-    # ── マップJSONファイル ──────────────────────────────────────
-    # config.dart の mapSections と完全に対応させること
-    # 建物・フロアを追加したらここにも追加する
-    - assets/home/home_1F.json
-    - assets/home/home_2F.json
-    # - assets/map_newbldg_1f.json   # 新館を追加するときはコメントを外す
-    # - assets/map_newbldg_2f.json
-    - assets/NITTC/NITTC_ground_1F.json
-    - assets/NITTC/NITTC_1F.json
-    - assets/NITTC/NITTC_2F.json
-    - assets/NITTC/NITTC_3F.json
+    # ディレクトリ単位で登録している。建物フォルダに JSON を置いて
+    # config.dart の mapSections にエントリを足せば、ここは触らなくてよい。
+    - assets/NITTC/
+    - assets/home/

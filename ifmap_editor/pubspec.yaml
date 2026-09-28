@@ -39,6 +39,8 @@ dependencies:
   image: ^4.8.0
   share_plus: ^12.0.2
   path_provider: ^2.1.5
+  # Web版のファイル保存で使う（dart:html の置き換え）
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

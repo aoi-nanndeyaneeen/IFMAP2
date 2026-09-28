@@ -14,8 +14,10 @@ class AppConfig {
   // 【ifmapアプリ出力設定】
   // 出力されたJSONをifmapで読み込んだ時、1マスを何ピクセルの距離として配置するか
   static const int pxPerCell = 10;
-  // 1マスが現実世界の何メートルか（ifmapで距離や時間を計算するために使用）
-  static const double metersPerCell = 4;
+  // 1マスが現実世界の何メートルか。
+  // ifmap 側の AppConfig.metersPerCell と必ず同じ値にすること。
+  // ここがずれると ifmap の残り距離表示と歩幅換算が丸ごと狂う。
+  static const double metersPerCell = 0.5;
 
   // 【エディタ上のフォントサイズ・ラベル表示設定】
   // まとまった部屋の縦・横の短い方に対して、文字サイズが占める割合 (デフォルト: 0.4)
