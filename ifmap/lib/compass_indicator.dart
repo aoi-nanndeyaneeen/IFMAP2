@@ -6,10 +6,19 @@ import 'config.dart';
 /// コンパス表示 + 初動方向案内ウィジェット（Stateless）
 /// heading と routeAngleRad を外から受け取るだけでよい
 class CompassIndicator extends StatelessWidget {
-  final double? heading;       // flutter_compass から取得した方位角（度、磁北から時計回り）
+  final double? heading;       // 方位角（度、磁北から時計回り）
   final double? routeAngleRad; // ルート最初のセグメントのキャンバス角（ラジアン）
 
-  const CompassIndicator({super.key, this.heading, this.routeAngleRad});
+  /// null でなければ、方位が未取得のあいだ「方位を有効にする」ボタンを出す。
+  /// Web でブラウザのセンサー許可がまだ取れていないときだけ渡される。
+  final Future<void> Function()? onEnable;
+
+  const CompassIndicator({
+    super.key,
+    this.heading,
+    this.routeAngleRad,
+    this.onEnable,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +36,20 @@ class CompassIndicator extends StatelessWidget {
                 heading != null ? '${heading!.toStringAsFixed(0)}° (磁北から)' : 'コンパス取得中...',
                 style: TextStyle(fontSize: 11, color: Colors.indigo.shade700),
               ),
+              if (heading == null && onEnable != null)
+                // iOS Safari はユーザー操作起点でないと許可を求められないのでボタンにする
+                SizedBox(
+                  height: 30,
+                  child: TextButton.icon(
+                    onPressed: onEnable,
+                    icon: const Icon(Icons.explore, size: 16),
+                    label: const Text('方位を有効にする', style: TextStyle(fontSize: 13)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
               if (heading != null && routeAngleRad != null) _turnInstruction(),
             ],
           ),

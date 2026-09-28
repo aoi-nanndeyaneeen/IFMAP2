@@ -4,9 +4,9 @@ import 'dart:math';
 import 'package:flutter/foundation.dart'; // compute()
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'config.dart';
+import 'heading_source.dart';
 import 'route_calculator.dart';
 import 'step_tracker.dart';
 import 'compass_indicator.dart';
@@ -231,6 +231,10 @@ class _MapScreenState extends State<MapScreen> {
 
   bool _showCompass = false, _followMode = false, _arrived = false;
 
+  /// Web でセンサー許可がまだ取れていないかどうか。true の間はコンパス欄に
+  /// 「方位を有効にする」ボタンを出す。ネイティブでは常に false。
+  bool _needsSensorPermission = false;
+
   final _tx = TransformationController();
   final _mapKey = GlobalKey();
 
@@ -273,11 +277,9 @@ class _MapScreenState extends State<MapScreen> {
     _tracker.nextGateStream.listen((g) => setState(() => _nextGate = g));
 
     // ★ コンパス更新: ValueNotifier に流すだけ
-    FlutterCompass.events?.listen((e) {
-      if (e.heading != null) {
-        _headingNotifier.value = e.heading;
-      }
-    });
+    // Web は flutter_compass が使えないので heading_source.dart 経由で取る。
+    headingStream().listen((h) => _headingNotifier.value = h);
+    _needsSensorPermission = needsSensorPermission();
 
     // ★ 気圧(高度)更新
     _tracker.altitudeStream.listen((h) {
@@ -292,6 +294,23 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     _loadAllMaps().then((_) => _checkUrlParameter());
+  }
+
+  /// ブラウザのセンサー許可ダイアログを出す。iOS Safari はユーザー操作起点で
+  /// ないと拒否するので、必ずタップから呼ぶこと。
+  Future<void> _enableSensors() async {
+    final granted = await requestSensorPermission();
+    if (!mounted) return;
+    setState(() => _needsSensorPermission = !granted);
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('方位センサーが許可されませんでした。'
+              '設定 > Safari > モーションと方位へのアクセス を確認してください'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
   }
 
   @override
@@ -1065,6 +1084,8 @@ class _MapScreenState extends State<MapScreen> {
                     builder: (_, heading, __) => CompassIndicator(
                       heading: heading,
                       routeAngleRad: _routeAngle,
+                      // Web で許可待ちのときだけボタンが出る
+                      onEnable: _needsSensorPermission ? _enableSensors : null,
                     ),
                   ),
                 ),
