@@ -1,0 +1,61 @@
+# ifmap (Flutter Web) を GitHub Pages に自動デプロイする。
+# main に push するだけで https://aoi-nanndeyaneeen.github.io/IFMAP2/ が更新される。
+name: Deploy ifmap to Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ifmap/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:   # 手動実行用（Actionsタブから押せる）
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時デプロイを防ぐ（新しい push を優先）
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pages をまだ有効化していなくても、ここで自動的に有効化される
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'   # ローカルと揃える
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        working-directory: ifmap
+        run: flutter pub get
+
+      # base-href はリポジトリ名。Pages が /IFMAP2/ 配下に置かれるため必須。
+      - name: flutter build web
+        working-directory: ifmap
+        run: flutter build web --release --base-href /IFMAP2/ --no-wasm-dry-run
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ifmap/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

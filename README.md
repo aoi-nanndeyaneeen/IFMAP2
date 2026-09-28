@@ -69,3 +69,25 @@ flutter run
 cd ../ifmap_editor
 flutter pub get
 flutter run -d windows # または -d chrome, -d macos
+
+---
+
+## 📱 iPhoneで使う (GitHub Pages への自動デプロイ)
+
+`main` に push するだけで GitHub Actions が Flutter Web をビルドし、GitHub Pages に公開します。
+Mac も Apple Developer 登録も不要です。
+
+* 公開URL: `https://aoi-nanndeyaneeen.github.io/IFMAP2/`
+* ワークフロー: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+* `ifmap/` 配下を変更して push → 2〜4分で公開版が更新される（手動実行は Actions タブの "Run workflow" から）
+
+### iPhone側の初回セットアップ
+1. **Safari** で上記URLを開く（Chrome ではホーム画面追加ができない）
+2. 共有ボタン → **「ホーム画面に追加」**
+3. 以降はホーム画面のアイコンから、ネイティブアプリと同じ全画面で起動する
+
+コードを更新すると、次回起動時にService Workerが新版を取得して自動的に入れ替わります。
+
+### QRコードの作り方
+`https://aoi-nanndeyaneeen.github.io/IFMAP2/?start=<ノード名>` をQRコード化して各部屋に貼ります。
+iPhone標準のカメラアプリで読むだけで、現在地が設定された状態で開きます。

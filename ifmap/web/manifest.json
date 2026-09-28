@@ -1,11 +1,11 @@
 {
-    "name": "ifmap",
+    "name": "infacilityMAP",
     "short_name": "ifmap",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "見取り図ベースの屋内ナビゲーション",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
