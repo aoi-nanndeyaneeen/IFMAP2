@@ -102,7 +102,8 @@ class AppConfig {
 
   // ── コンパス ──────────────────────────────────────────────────
   /// マップの「上」方向が指す磁北方位角(度)。
-  static const double mapNorthDegrees = -90.0;
+  /// マップは北を上にして作っているので 0。
+  static const double mapNorthDegrees = 0.0;
 
   // ── マップ描画 ─────────────────────────────────────────────────
   static const double mapCanvasSize = 6000.0;
