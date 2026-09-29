@@ -56,6 +56,24 @@ class PlaceRef {
   String toString() => '$name@$label';
 }
 
+/// エディタで置いたQRコードの設置位置。
+@immutable
+class QrSpot {
+  final String id;
+  final String label;
+  final String nodeId;
+
+  /// 設置場所のメモ（例: 1F中央階段前）。なければ null。
+  final String? memo;
+
+  const QrSpot({
+    required this.id,
+    required this.label,
+    required this.nodeId,
+    this.memo,
+  });
+}
+
 /// 1フロア分のマップ。読み込み後は不変。
 class FloorMap {
   final MapSection section;
@@ -121,6 +139,9 @@ class MapRepository {
   /// 名前・ノードID -> それを持つフロアラベル（mapSections の順）。
   final Map<String, List<String>> _labelsByName = {};
 
+  /// QRコードのID -> 設置位置。QRのIDは全フロアで一意（エディタが採番）。
+  final Map<String, QrSpot> _qrSpots = {};
+
   /// 読み込み済みのフロアラベル。mapSections の順に並ぶ。
   List<String> get labels => _floors.keys.toList(growable: false);
 
@@ -130,6 +151,9 @@ class MapRepository {
 
   Map<String, Map<String, dynamic>> get nodesByLabel =>
       {for (final e in _floors.entries) e.key: e.value.nodes};
+
+  /// QRコードのIDから設置位置を引く。登録されていなければ null。
+  QrSpot? qrSpot(String id) => _qrSpots[id];
 
   /// その名前が存在するフロアをすべて返す。
   List<String> labelsOf(String nameOrId) => _labelsByName[nameOrId] ?? const [];
@@ -172,6 +196,17 @@ class MapRepository {
     }
     for (final name in floor.entryIdByName.keys) {
       _labelsByName.putIfAbsent(name, () => []).add(floor.label);
+    }
+    for (final e in floor.nodes.entries) {
+      final v = e.value;
+      if (v is! Map || v['qrId'] is! String) continue;
+      final id = v['qrId'] as String;
+      _qrSpots[id] = QrSpot(
+        id: id,
+        label: floor.label,
+        nodeId: e.key,
+        memo: v['qrMemo'] as String?,
+      );
     }
   }
 

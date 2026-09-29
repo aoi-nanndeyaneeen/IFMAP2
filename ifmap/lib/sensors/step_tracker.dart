@@ -140,6 +140,49 @@ class StepTracker {
     _distCtrl.add(_traveled);
   }
 
+  /// QRコードなどで現在地が確定した。経路上（またはそのすぐ脇）なら
+  /// そこまで進んだものとして位置を合わせ、通り過ぎたチェックポイントの
+  /// キーを返す。経路から離れていれば何もせず null を返す
+  /// （呼び出し側で経路を引き直す）。
+  ///
+  /// 歩数の推定より手前に戻ることもある（数えすぎていた場合）。
+  List<String>? snapToNode(String nodeId,
+      {double tolerancePx = AppConfig.qrSnapTolerancePx}) {
+    if (!hasRoute) return null;
+
+    var idx = _path.indexOf(nodeId);
+    if (idx == -1) {
+      final target = _nodes[nodeId];
+      if (target is! Map) return null;
+      final tx = (target['x'] as num).toDouble();
+      final ty = (target['y'] as num).toDouble();
+      var best = double.infinity;
+      for (var i = 0; i < _path.length; i++) {
+        final n = _nodes[_path[i]];
+        if (n is! Map) continue;
+        final dx = (n['x'] as num) - tx, dy = (n['y'] as num) - ty;
+        final d = sqrt(dx * dx + dy * dy);
+        if (d < best) {
+          best = d;
+          idx = i;
+        }
+      }
+      if (idx == -1 || best > tolerancePx) return null;
+    }
+
+    final target = _cumDist[idx];
+    final passed = <String>[];
+    while (_gateIdx < _gates.length && _gates[_gateIdx].px <= target) {
+      passed.add(_gates[_gateIdx].info.key);
+      _gateIdx++;
+    }
+    _traveled = target;
+    _posCtrl.add(_calcPosition());
+    _distCtrl.add(_traveled);
+    _gateCtrl.add(nextGate);
+    return passed;
+  }
+
   // ─── センサー ─────────────────────────────────────────────────
 
   /// 加速度（歩数）・気圧・GPSの購読を始める。多重呼び出ししても安全。

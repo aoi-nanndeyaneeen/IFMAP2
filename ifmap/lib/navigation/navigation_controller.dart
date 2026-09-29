@@ -213,14 +213,61 @@ class NavigationController extends ChangeNotifier {
     if (!_disposed) _focusRequests.add(target);
   }
 
-  /// QRコードを URL パラメータの形（?start=ノード名）で踏んだ場合。
+  /// QRコードを URL の形で踏んだ場合。
+  /// - `?qr=ID`        エディタで置いたQRコード（設置位置で現在地を確定）
+  /// - `?start=ノード名` 部屋名で出発地を決める古い形式
   void _applyUrlParameter() {
     try {
-      final name = Uri.base.queryParameters['start'];
-      if (name != null && name.isNotEmpty) unawaited(setStartByName(name));
+      final params = Uri.base.queryParameters;
+      final qr = params['qr'];
+      final name = params['start'];
+      if (qr != null && qr.isNotEmpty) {
+        unawaited(applyQr(qr));
+      } else if (name != null && name.isNotEmpty) {
+        unawaited(setStartByName(name));
+      }
     } catch (_) {
       // Uri.base はネイティブでは意味を持たないことがある。無視してよい。
     }
+  }
+
+  /// アプリ内スキャナで読んだ文字列。QRの URL でも部屋名そのものでもよい。
+  Future<void> handleScannedCode(String scanned) {
+    final uri = Uri.tryParse(scanned);
+    final qr = (uri != null && uri.hasScheme) ? uri.queryParameters['qr'] : null;
+    if (qr != null && qr.isNotEmpty) return applyQr(qr);
+    return setStartByName(scanned);
+  }
+
+  /// エディタで置いたQRコードを読んだ。
+  ///
+  /// 案内中で、QRが今の経路上（またはそのすぐ脇）にあれば、経路はそのままで
+  /// 進んだ距離をそこに合わせる。歩数の推定で溜まった誤差をここで消す。
+  /// 経路から外れていたり案内していなければ、そこを新しい現在地にする
+  /// （目的地があれば経路を引き直す）。
+  Future<void> applyQr(String id) async {
+    final spot = repo.qrSpot(id);
+    if (spot == null) {
+      _say(AppMessage('このQRコード（$id）はマップに登録されていません',
+          kind: MessageKind.error));
+      return;
+    }
+    final where = spot.memo ?? 'QRコードの場所';
+
+    if (goal != null && trackerLabel == spot.label) {
+      final passed = _tracker.snapToNode(spot.nodeId);
+      if (passed != null) {
+        passedGates.addAll(passed);
+        currentLabel = spot.label;
+        _say(AppMessage('「$where」で現在地を補正しました'));
+        _requestFocus(PlaceRef(spot.nodeId, spot.label));
+        _checkArrival();
+        _notify();
+        return;
+      }
+    }
+
+    await setStart(PlaceRef(spot.nodeId, spot.label), displayName: where);
   }
 
   // ─── 出発地・目的地 ───────────────────────────────────────────
@@ -247,12 +294,14 @@ class NavigationController extends ChangeNotifier {
     return uri.queryParameters['start'] ?? scanned;
   }
 
-  Future<void> setStart(PlaceRef place) {
+  /// [displayName] は案内に出す名前。QRコードの場所のように [place] の
+  /// name がノードID（node_12-34 など）になるときに渡す。
+  Future<void> setStart(PlaceRef place, {String? displayName}) {
     start = place;
     currentLabel = place.label;
     trackerLabel = place.label;
     showCompass = true;
-    _say(AppMessage('現在地を「${place.name}」に設定しました'));
+    _say(AppMessage('現在地を「${displayName ?? place.name}」に設定しました'));
     _requestFocus(place);
     return _recalculate();
   }

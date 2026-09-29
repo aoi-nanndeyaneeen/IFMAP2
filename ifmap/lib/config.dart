@@ -131,6 +131,11 @@ class AppConfig {
 
   /// 到着とみなす残距離(JSON-px)。
   static const double arrivalTolerancePx = 5.0;
+
+  /// QRコードを読んだとき、経路からこの距離(JSON-px)以内なら経路上の
+  /// 最寄りの点に位置を合わせる。これより離れていれば経路を引き直す。
+  /// 通路の脇や壁際に貼ることが多いので、通路の幅くらい(3m)は許す。
+  static const double qrSnapTolerancePx = 3.0 / metersPerPx;
 }
 
 /// 端末依存で切りたいセンサーのON/OFF。

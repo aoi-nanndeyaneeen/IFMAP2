@@ -471,7 +471,7 @@ class _MapScreenState extends State<MapScreen> {
       context,
       MaterialPageRoute(builder: (_) => const QRScannerScreen()),
     );
-    if (code != null) await _controller.setStartByName(code);
+    if (code != null) await _controller.handleScannedCode(code);
   }
 
   // ─── 場所の一覧 ───────────────────────────────────────────────
