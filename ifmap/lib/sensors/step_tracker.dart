@@ -20,6 +20,7 @@ import '../config.dart';
 import '../data/map_data.dart';
 import 'motion_source.dart';
 import 'step_detector.dart';
+import 'turn_matching.dart';
 
 /// 経路上のチェックポイント1件。
 @immutable
@@ -55,7 +56,16 @@ class _Gate {
 class StepTracker {
   final double stepLengthPx;
 
-  StepTracker({this.stepLengthPx = AppConfig.stepLengthPx});
+  /// [clock] は秒を返す時計。テストで時間を進めるために差し替えられる。
+  StepTracker({this.stepLengthPx = AppConfig.stepLengthPx, double Function()? clock})
+      : _now = clock ?? _stopwatchClock();
+
+  static double Function() _stopwatchClock() {
+    final sw = Stopwatch()..start();
+    return () => sw.elapsedMicroseconds / 1e6;
+  }
+
+  final double Function() _now;
 
   List<String> _path = [];
   Map<String, dynamic> _nodes = {};
@@ -64,6 +74,17 @@ class StepTracker {
   final StepDetector _detector = StepDetector();
   List<_Gate> _gates = [];
   int _gateIdx = 0;
+
+  // ── 曲がり角による補正 ────────────────────────────────────────
+  final TurnDetector _turns = TurnDetector();
+  List<RouteCorner> _corners = const [];
+
+  /// (時刻, 進んだ距離) の記録。曲がったと判定するのは曲がり終えて
+  /// 少し歩いた後なので、「曲がった瞬間にどこまで進んでいたか」を引く。
+  final List<(double, double)> _progressLog = [];
+  double? _lastStepT;
+  TurnEvent? _pendingTurn;
+  String _lastCorrection = 'なし';
 
   double? _refPressure;
   double? _filteredPressure;
@@ -78,12 +99,19 @@ class StepTracker {
   final _gateCtrl = StreamController<GateInfo?>.broadcast();
   final _altCtrl = StreamController<double>.broadcast();
   final _gpsCtrl = StreamController<Position?>.broadcast();
+  final _correctionCtrl = StreamController<double>.broadcast();
 
   Stream<Offset?> get positionStream => _posCtrl.stream;
   Stream<double> get traveledStream => _distCtrl.stream;
   Stream<GateInfo?> get nextGateStream => _gateCtrl.stream;
   Stream<double> get altitudeStream => _altCtrl.stream;
   Stream<Position?> get gpsStream => _gpsCtrl.stream;
+
+  /// 曲がり角で位置を合わせたときの補正量(JSON-px)。前へ進めたら正。
+  Stream<double> get correctionStream => _correctionCtrl.stream;
+
+  /// 経路から取り出した曲がり角（テスト・診断用）。
+  List<RouteCorner> get corners => _corners;
 
   Position? get currentGps => _currentGps;
   double get totalRoutePx => _cumDist.isEmpty ? 0 : _cumDist.last;
@@ -111,6 +139,10 @@ class StepTracker {
     _gateIdx = 0;
     _buildCumDist();
     _buildGates();
+    _corners = extractCorners(_pathPoints(), _cumDist);
+    _progressLog.clear();
+    _pendingTurn = null;
+    _logProgress();
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
     _gateCtrl.add(nextGate);
@@ -122,6 +154,9 @@ class StepTracker {
     _nodes = {};
     _cumDist = [];
     _gates = [];
+    _corners = const [];
+    _progressLog.clear();
+    _pendingTurn = null;
     _traveled = 0;
     _gateIdx = 0;
     _posCtrl.add(null);
@@ -136,6 +171,7 @@ class StepTracker {
     if (idx == -1 || idx < _gateIdx) return;
     _traveled = _gates[idx].px;
     _gateIdx = idx + 1;
+    _logProgress();
     _gateCtrl.add(nextGate);
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
@@ -178,6 +214,7 @@ class StepTracker {
       _gateIdx++;
     }
     _traveled = target;
+    _logProgress();
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
     _gateCtrl.add(nextGate);
@@ -252,12 +289,121 @@ class StepTracker {
   @visibleForTesting
   void advanceSteps(int steps) {
     if (!hasRoute || steps <= 0) return;
-    // 次のチェックポイントより先へは進ませない。そこで位置を確定させるため。
-    final cap = _gateIdx < _gates.length ? _gates[_gateIdx].px : totalRoutePx;
-    _traveled = (_traveled + stepLengthPx * steps).clamp(0.0, cap);
+    _lastStepT = _now();
+    _traveled = (_traveled + stepLengthPx * steps).clamp(0.0, _capPx);
+    _logProgress();
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
+
+    // 立ち止まっているときに検出した曲がりは、歩き出してから確かめる
+    final pending = _pendingTurn;
+    if (pending != null) {
+      _pendingTurn = null;
+      if (_now() - pending.t <= _turnWalkWindow) _applyTurn(pending);
+    }
   }
+
+  /// 次のチェックポイントより先へは進ませない。そこで位置を確定させるため。
+  double get _capPx =>
+      _gateIdx < _gates.length ? _gates[_gateIdx].px : totalRoutePx;
+
+  /// 確認済みのチェックポイントより手前へは戻さない。
+  double get _floorPx => _gateIdx > 0 ? _gates[_gateIdx - 1].px : 0;
+
+  // ─── 曲がり角による補正 ─────────────────────────────────────────
+
+  /// 曲がりの前後これだけの間に歩いていなければ、その場で向きを変えた
+  /// （見回した）だけとみなす（秒）。
+  static const double _turnWalkWindow = 3.0;
+
+  /// 推定位置からこの距離以内の曲がり角だけを候補にする（5m）。
+  static final double _cornerSearchPx = 5.0 / AppConfig.metersPerPx;
+
+  /// 検出した曲がりと経路の曲がり角の角度の差の許容（度）。
+  static const double _cornerAngleTolerance = 45;
+
+  /// 方位のサンプルを入れる。コントローラがコンパスの値を流す。
+  void onHeading(double heading) {
+    final event = _turns.addHeading(_now(), heading);
+    if (event == null || !hasRoute) return;
+    final lastStep = _lastStepT;
+    if (lastStep != null && event.t - lastStep <= _turnWalkWindow) {
+      _applyTurn(event);
+    } else {
+      _pendingTurn = event;
+    }
+  }
+
+  void _applyTurn(TurnEvent event) {
+    // 曲がり終えた（新しい向きで安定し始めた）時点での進み具合
+    final at = _progressAt(event.t - _turns.stableSeconds);
+
+    RouteCorner? best;
+    for (final c in _corners) {
+      if (c.turn.sign != event.delta.sign) continue;
+      if ((c.turn - event.delta).abs() > _cornerAngleTolerance) continue;
+      if ((c.distance - at).abs() > _cornerSearchPx) continue;
+      if (best == null || (c.distance - at).abs() < (best.distance - at).abs()) {
+        best = c;
+      }
+    }
+    if (best == null) {
+      _lastCorrection = '${event.delta.toStringAsFixed(0)}° 曲がりを検出、'
+          '近くに一致する曲がり角なし';
+      return;
+    }
+
+    final offset = best.distance - at;
+    final before = _traveled;
+    _traveled = (_traveled + offset).clamp(_floorPx, _capPx);
+    final applied = _traveled - before;
+    _lastCorrection = '${event.delta.toStringAsFixed(0)}° 曲がりを '
+        '${best.turn.toStringAsFixed(0)}° の角に一致、'
+        '${(applied * AppConfig.metersPerPx).toStringAsFixed(1)} m 補正';
+    if (applied.abs() < 1e-6) return;
+    _logProgress();
+    _posCtrl.add(_calcPosition());
+    _distCtrl.add(_traveled);
+    _correctionCtrl.add(applied);
+  }
+
+  void _logProgress() {
+    _progressLog.add((_now(), _traveled));
+    // 曲がりの判定にさかのぼるのはせいぜい数秒なので古いものは捨てる
+    final limit = _now() - 10;
+    while (_progressLog.length > 1 && _progressLog[1].$1 < limit) {
+      _progressLog.removeAt(0);
+    }
+  }
+
+  double _progressAt(double t) {
+    var value = _progressLog.isEmpty ? _traveled : _progressLog.first.$2;
+    for (final (time, traveled) in _progressLog) {
+      if (time > t) break;
+      value = traveled;
+    }
+    return value;
+  }
+
+  List<Offset> _pathPoints() => [
+        for (final id in _path)
+          if (_nodes[id] case final Map n)
+            Offset((n['x'] as num).toDouble(), (n['y'] as num).toDouble())
+          else
+            Offset.zero,
+      ];
+
+  /// 曲がり角による補正の状態。デバッグ画面に出す。
+  Map<String, String> get turnDiagnostics => {
+        '経路の曲がり角': _corners.isEmpty
+            ? 'なし'
+            : _corners
+                .map((c) => '${(c.distance * AppConfig.metersPerPx).toStringAsFixed(0)}m地点'
+                    '${c.turn > 0 ? '右' : '左'}${c.turn.abs().toStringAsFixed(0)}°')
+                .join(', '),
+        '基準の向き': _turns.reference?.toStringAsFixed(0) ?? '—',
+        '最後の補正': _lastCorrection,
+      };
 
   /// 歩行検出の状態。デバッグ画面に出す。
   Map<String, String> get stepDiagnostics => {
@@ -340,6 +486,7 @@ class StepTracker {
     _gateCtrl.close();
     _altCtrl.close();
     _gpsCtrl.close();
+    _correctionCtrl.close();
   }
 
   // ─── 経路上の距離とチェックポイント ──────────────────────────

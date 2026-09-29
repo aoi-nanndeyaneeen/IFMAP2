@@ -156,7 +156,16 @@ class NavigationController extends ChangeNotifier {
     });
     _listen(_tracker.altitudeStream, _onAltitude);
     _listen(_tracker.gpsStream, _onGps);
-    _listen(headingStream(), (double h) => heading.value = h);
+    _listen(headingStream(), (double h) {
+      heading.value = h;
+      // 曲がり角を目印にした位置の補正に使う
+      _tracker.onHeading(h);
+    });
+    _listen(_tracker.correctionStream, (double px) {
+      final m = px * AppConfig.metersPerPx;
+      _say(AppMessage('曲がり角で現在地を補正しました'
+          '（${m >= 0 ? '+' : ''}${m.toStringAsFixed(1)}m）'));
+    });
 
     sensorPermissionNeeded = needsSensorPermission();
 
@@ -551,6 +560,7 @@ class NavigationController extends ChangeNotifier {
   // ─── デバッグ ─────────────────────────────────────────────────
 
   Map<String, String> get stepDiagnostics => _tracker.stepDiagnostics;
+  Map<String, String> get turnDiagnostics => _tracker.turnDiagnostics;
 
   void debugInjectAltitude(double h) => _tracker.debugInjectAltitude(h);
   void debugInjectGps(Position p) => _tracker.debugInjectGps(p);

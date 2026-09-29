@@ -268,6 +268,7 @@ class _StepDiagnosticsState extends State<_StepDiagnostics> {
     final lines = <String>[
       for (final e in motionDiagnostics().entries) '${e.key}: ${e.value}',
       for (final e in c.stepDiagnostics.entries) '${e.key}: ${e.value}',
+      for (final e in c.turnDiagnostics.entries) '${e.key}: ${e.value}',
       '経路: ${c.currentPath.isEmpty ? 'なし（経路がないと歩数は数えない）' : '${c.currentPath.length} ノード'}',
       '進んだ距離: ${traveledM.toStringAsFixed(1)} m',
       '次のチェックポイント: ${c.nextGate?.label ?? 'なし'}'
