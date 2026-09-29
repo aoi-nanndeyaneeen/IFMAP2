@@ -27,7 +27,7 @@ class MapPainter extends CustomPainter {
   final bool isStartOnCurrentFloor;
   final bool isGoalOnCurrentFloor;
 
-  const MapPainter({
+  MapPainter({
     required this.floor,
     required this.path,
     this.startName,
@@ -39,10 +39,24 @@ class MapPainter extends CustomPainter {
     required this.showUserDot,
     this.isStartOnCurrentFloor = false,
     this.isGoalOnCurrentFloor = false,
-  });
+  }) : super(repaint: PaintingBinding.instance.systemFonts);
 
   // フロアごとの背景キャッシュ。使った順に並べ、古いものから捨てる。
   static final Map<String, ui.Picture> _backgroundCache = {};
+
+  // Web では日本語フォントが「その文字を初めて描こうとした後」に
+  // ダウンロードされる。届く前に焼いた背景は部屋名が ☒ のまま残るので、
+  // フォントが増えた通知(systemFonts)が来たら背景を焼き直す。
+  // 描き直しのきっかけはコンストラクタの repaint で受け取っている。
+  static int _fontsVersion = 0;
+  static int _cachedFontsVersion = 0;
+  static bool _watchingFonts = false;
+
+  static void _watchFonts() {
+    if (_watchingFonts) return;
+    _watchingFonts = true;
+    PaintingBinding.instance.systemFonts.addListener(() => _fontsVersion++);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -61,6 +75,12 @@ class MapPainter extends CustomPainter {
   }
 
   ui.Picture _background() {
+    _watchFonts();
+    if (_cachedFontsVersion != _fontsVersion) {
+      clearCache();
+      _cachedFontsVersion = _fontsVersion;
+    }
+
     final cached = _backgroundCache.remove(floor.label);
     if (cached != null) {
       // 取り出して入れ直すことで「直近に使った」順に並べ替える。
