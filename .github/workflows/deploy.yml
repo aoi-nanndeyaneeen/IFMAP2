@@ -44,6 +44,14 @@ jobs:
         working-directory: ifmap
         run: flutter pub get
 
+      # エディタ専用の見取り図画像(bgImageBase64)を公開物からだけ取り除く。
+      # ifmap は読まないのに約6MBあり、毎回ダウンロードされていた。
+      # ここで書き換えるのは CI のチェックアウトだけで、リポジトリの JSON は
+      # そのままなのでエディタでの再編集には影響しない。
+      - name: strip editor-only data from map assets
+        working-directory: ifmap
+        run: dart run tool/strip_bg_image.dart --apply
+
       # base-href はリポジトリ名。Pages が /IFMAP2/ 配下に置かれるため必須。
       - name: flutter build web
         working-directory: ifmap

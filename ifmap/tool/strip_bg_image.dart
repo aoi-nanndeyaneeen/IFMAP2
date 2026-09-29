@@ -12,15 +12,19 @@
 //   dart run tool/strip_bg_image.dart            # 何MB減るか出すだけ
 //   dart run tool/strip_bg_image.dart --apply    # 実際に書き換える
 //
+// --apply は GitHub Actions の deploy.yml がビルド直前に、CI のチェックアウト
+// 上でだけ実行している。リポジトリの JSON は書き換えないので、エディタで
+// 読み直せば見取り図もそのまま出る。
+//
 // 注意:
-//   書き換えたJSONは ifmap_editor で読み直しても背景の見取り図が出ない
-//   （マス目・壁・部屋名は残る）。編集を続ける予定があるなら、
-//   エディタが書き出した元のファイルを map_sources/ などに残しておくこと。
-//   git に入っていれば履歴からも戻せる。
+//   手元で --apply すると ifmap_editor で読み直しても背景の見取り図が
+//   出なくなる（マス目・壁・部屋名は残る）。手元では実行しないこと。
+//   やってしまったら git restore で戻せる。
 import 'dart:convert';
 import 'dart:io';
 
-const _assetDirs = ['assets/NITTC', 'assets/home'];
+// assets/ 以下を再帰的に見る。建物フォルダを足してもここは触らなくてよい。
+const _assetsRoot = 'assets';
 
 void main(List<String> args) {
   final apply = args.contains('--apply');
@@ -29,41 +33,41 @@ void main(List<String> args) {
   var totalAfter = 0;
   var changed = 0;
 
-  for (final dirPath in _assetDirs) {
-    final dir = Directory(dirPath);
-    if (!dir.existsSync()) {
-      stderr.writeln('見つかりません: $dirPath');
+  final root = Directory(_assetsRoot);
+  if (!root.existsSync()) {
+    stderr.writeln('見つかりません: $_assetsRoot（ifmap/ で実行すること）');
+    exitCode = 1;
+    return;
+  }
+
+  for (final entity in root.listSync(recursive: true)) {
+    if (entity is! File || !entity.path.endsWith('.json')) continue;
+
+    final before = entity.lengthSync();
+    final decoded = jsonDecode(entity.readAsStringSync());
+    if (decoded is! Map<String, dynamic>) continue;
+
+    final editorData = decoded['_editorData'];
+    if (editorData is! Map || editorData['bgImageBase64'] == null) {
+      totalBefore += before;
+      totalAfter += before;
       continue;
     }
 
-    for (final entity in dir.listSync()) {
-      if (entity is! File || !entity.path.endsWith('.json')) continue;
+    editorData['bgImageBase64'] = null;
+    final output = jsonEncode(decoded);
+    // 部屋名に日本語があるので文字数ではなく UTF-8 のバイト数で比べる
+    final after = utf8.encode(output).length;
 
-      final before = entity.lengthSync();
-      final decoded = jsonDecode(entity.readAsStringSync());
-      if (decoded is! Map<String, dynamic>) continue;
+    totalBefore += before;
+    totalAfter += after;
+    changed++;
 
-      final editorData = decoded['_editorData'];
-      if (editorData is! Map || editorData['bgImageBase64'] == null) {
-        totalBefore += before;
-        totalAfter += before;
-        continue;
-      }
+    stdout.writeln('${entity.path}: '
+        '${_mb(before)} -> ${_mb(after)} '
+        '(-${_mb(before - after)})');
 
-      editorData['bgImageBase64'] = null;
-      final output = jsonEncode(decoded);
-      final after = output.length;
-
-      totalBefore += before;
-      totalAfter += after;
-      changed++;
-
-      stdout.writeln('${entity.path}: '
-          '${_mb(before)} -> ${_mb(after)} '
-          '(-${_mb(before - after)})');
-
-      if (apply) entity.writeAsStringSync(output);
-    }
+    if (apply) entity.writeAsStringSync(output);
   }
 
   stdout.writeln('');
