@@ -69,6 +69,7 @@ class MapEditorController extends ChangeNotifier {
     return src.map((r) => r.map((c) => MapCell(
       x: c.x, y: c.y, type: c.type, name: c.name,
       connectsToMap: c.connectsToMap, connectsToNode: c.connectsToNode,
+      qrId: c.qrId, qrMemo: c.qrMemo,
       wallTop: c.wallTop, wallBottom: c.wallBottom,
       wallLeft: c.wallLeft, wallRight: c.wallRight,
       doorTop: c.doorTop, doorBottom: c.doorBottom,
@@ -110,6 +111,13 @@ class MapEditorController extends ChangeNotifier {
     }
     roomGroups = groups;
   }
+
+  /// QRコードが置かれているマス。
+  List<MapCell> get qrCells => [
+        for (final row in grid)
+          for (final c in row)
+            if (c.qrId != null) c,
+      ];
 
   bool isNameDuplicate(String name, int type) =>
       grid.any((row) => row.any((c) => c.type == type && c.name == name));
@@ -180,6 +188,7 @@ class MapEditorController extends ChangeNotifier {
         x: cx, y: cy,
         type: c['type'] ?? 0, name: c['name'],
         connectsToMap: c['connectsToMap'], connectsToNode: c['connectsToNode'],
+        qrId: c['qrId'], qrMemo: c['qrMemo'],
         wallTop:    c['wallTop']    == true, wallBottom: c['wallBottom'] == true,
         wallLeft:   c['wallLeft']   == true, wallRight:  c['wallRight']  == true,
         doorTop:    c['doorTop']    == true, doorBottom: c['doorBottom'] == true,

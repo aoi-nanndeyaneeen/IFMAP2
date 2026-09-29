@@ -19,6 +19,11 @@ class AppConfig {
   // ここがずれると ifmap の残り距離表示と歩幅換算が丸ごと狂う。
   static const double metersPerCell = 0.5;
 
+  // 【QRコード】
+  // QRに埋め込むアプリのURL。GitHub Pages の公開URL。
+  // QRの中身は '$appBaseUrl?qr=<qrId>' になる。
+  static const String appBaseUrl = 'https://aoi-nanndeyaneeen.github.io/IFMAP2/';
+
   // 【エディタ上のフォントサイズ・ラベル表示設定】
   // まとまった部屋の縦・横の短い方に対して、文字サイズが占める割合 (デフォルト: 0.4)
   static const double labelSizeRatio = 0.2;

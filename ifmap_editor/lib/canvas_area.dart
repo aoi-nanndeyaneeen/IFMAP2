@@ -120,6 +120,33 @@ class CanvasArea extends StatelessWidget {
           );
         }
 
+        // QRコード設置位置。部屋名のラベルより手前に小さな黒い目印を出す。
+        final qrWidgets = <Widget>[
+          for (final row in grid)
+            for (final c in row)
+              if (c.qrId != null)
+                Positioned(
+                  left: c.x * cellSize,
+                  top: c.y * cellSize,
+                  width: cellSize,
+                  height: cellSize,
+                  child: IgnorePointer(
+                    child: Tooltip(
+                      message: c.qrMemo ?? c.qrId!,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(cellSize * 0.15),
+                        ),
+                        child: FittedBox(
+                          child: Icon(Icons.qr_code_2, color: Colors.white, size: cellSize),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+        ];
+
         return Container(
           decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 2)),
           child: InteractiveViewer(
@@ -180,6 +207,7 @@ class CanvasArea extends StatelessWidget {
                         ),
                       ),
                       ...roomWidgets,
+                      ...qrWidgets,
                     ],
                   ),
                 ),

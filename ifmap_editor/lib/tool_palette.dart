@@ -88,6 +88,7 @@ class ToolPalette extends StatelessWidget {
         _typeBtn(8, '扉 (境界)',    Colors.orange.shade800,  Icons.door_front_door),
         const Divider(),
         _typeBtn(9, '名前の変更',   Colors.teal.shade600,    Icons.edit_note),
+        _typeBtn(11, 'QRコード設置', Colors.black87,         Icons.qr_code_2),
       ]),
     );
   }

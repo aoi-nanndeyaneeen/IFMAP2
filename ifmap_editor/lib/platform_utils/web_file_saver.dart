@@ -12,11 +12,20 @@ import 'stub_file_saver.dart';
 
 class WebFileSaver implements FileSaver {
   @override
-  Future<void> saveFile(String fileName, String content, Uint8List? _) async {
-    final blob = web.Blob(
-      [content.toJS].toJS,
-      web.BlobPropertyBag(type: 'application/json'),
-    );
+  Future<void> saveFile(String fileName, String content, Uint8List? _) =>
+      _download(fileName, web.Blob(
+        [content.toJS].toJS,
+        web.BlobPropertyBag(type: 'application/json'),
+      ));
+
+  @override
+  Future<void> saveBytes(String fileName, Uint8List bytes, String mimeType) =>
+      _download(fileName, web.Blob(
+        [bytes.toJS].toJS,
+        web.BlobPropertyBag(type: mimeType),
+      ));
+
+  Future<void> _download(String fileName, web.Blob blob) async {
     final url = web.URL.createObjectURL(blob);
     try {
       // クリックさせるだけなので DOM に入れる必要はない。

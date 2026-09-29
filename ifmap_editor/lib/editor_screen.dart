@@ -8,6 +8,7 @@ import 'tool_palette.dart';
 import 'canvas_area.dart';
 import 'json_exporter.dart';
 import 'auto_wall_detector.dart';
+import 'qr_tools.dart';
 
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key});
@@ -112,17 +113,32 @@ class _EditorScreenState extends State<EditorScreen> {
       );
       return;
     }
+    // QRは塗るのではなく1マスずつ置くのでクリックで扱う。右クリックは無視。
+    if (_ctrl.brushType == 11) {
+      if (buttons == 1) await QrTools.handleClick(context, _ctrl, y, x);
+      return;
+    }
     _handler.onPointerDown(y, x, buttons, local, global, cs);
   }
 
-  void _onPointerMove(
-      int y, int x, int buttons, Offset local, Offset global, double cs) =>
-      _handler.onPointerMove(y, x, buttons, local, global, cs);
+  /// 塗らずにクリックだけで動くツール（名前の変更・QRコード設置）。
+  /// これらでドラッグを塗り処理に流すと、マスの type がツール番号で
+  /// 上書きされてマップが壊れるので、移動と離した瞬間は無視する。
+  bool get _isClickTool => _ctrl.brushType == 9 || _ctrl.brushType == 11;
 
-  Future<void> _onPointerUp() => _handler.onPointerUp(
-    onNeedNameDialog:      _nameDialog,
-    onNeedConnectorDialog: _connectorDialog,
-  );
+  void _onPointerMove(
+      int y, int x, int buttons, Offset local, Offset global, double cs) {
+    if (_isClickTool) return;
+    _handler.onPointerMove(y, x, buttons, local, global, cs);
+  }
+
+  Future<void> _onPointerUp() async {
+    if (_isClickTool) return;
+    await _handler.onPointerUp(
+      onNeedNameDialog:      _nameDialog,
+      onNeedConnectorDialog: _connectorDialog,
+    );
+  }
 
   // ── build ─────────────────────────────────────────────
   @override
@@ -148,6 +164,11 @@ class _EditorScreenState extends State<EditorScreen> {
           const Center(
             child: Text('ホイールクリック+ドラッグで移動\nスクロールで拡大縮小',
               style: TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+          ElevatedButton.icon(
+            onPressed: () => QrTools.showList(context, _ctrl),
+            icon: const Icon(Icons.qr_code_2),
+            label: Text('QR一覧 (${_ctrl.qrCells.length})')),
+          const SizedBox(width: 8),
           ElevatedButton.icon(
             onPressed: () => JsonImporter.importJson(context, _ctrl),
             icon: const Icon(Icons.upload_file), label: const Text('JSON読込')),

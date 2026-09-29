@@ -285,6 +285,9 @@ class InputHandler {
     c.name = null;
     c.connectsToMap = null;
     c.connectsToNode = null;
+    // 歩けないマスに QR が残るとアプリ側で引けなくなるので一緒に消す
+    c.qrId = null;
+    c.qrMemo = null;
 
     if (y > 0 && currentStrokeCells.contains(ctrl.grid[y - 1][x])) {
       c.wallTop = false;

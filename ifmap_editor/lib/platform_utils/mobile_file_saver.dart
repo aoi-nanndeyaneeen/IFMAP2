@@ -17,6 +17,16 @@ class MobileFileSaver implements FileSaver {
       ),
     );
   }
+
+  @override
+  Future<void> saveBytes(String fileName, Uint8List bytes, String mimeType) async {
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsBytes(bytes);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path, mimeType: mimeType)]),
+    );
+  }
 }
 
 FileSaver getFileSaver() => MobileFileSaver();

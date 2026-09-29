@@ -41,6 +41,7 @@ dependencies:
   path_provider: ^2.1.5
   # Web版のファイル保存で使う（dart:html の置き換え）
   web: ^1.1.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

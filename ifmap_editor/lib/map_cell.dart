@@ -9,6 +9,11 @@ class MapCell {
   String? connectsToMap;  // 接続先マップラベル (例: '新館1F')
   String? connectsToNode; // 接続先ノードID    (例: 'connector_from_main')
 
+  // QRコードの設置位置。type とは独立した付加情報で、歩けるマスならどこにでも置ける。
+  // ifmap は QR の URL (?qr=<qrId>) からこのマスを引いて現在地を確定させる。
+  String? qrId;   // 自動採番の短いID。全フロアで一意にする
+  String? qrMemo; // 設置場所のメモ（例: 1F中央階段前）。印刷カードにも載せる
+
   bool wallTop;
   bool wallRight;
   bool wallBottom;
@@ -21,6 +26,7 @@ class MapCell {
 
   MapCell({required this.x, required this.y, this.type = 0,
            this.name, this.connectsToMap, this.connectsToNode,
+           this.qrId, this.qrMemo,
            this.wallTop = false, this.wallRight = false, this.wallBottom = false, this.wallLeft = false,
            this.doorTop = false, this.doorRight = false, this.doorBottom = false, this.doorLeft = false});
 

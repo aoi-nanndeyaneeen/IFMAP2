@@ -76,6 +76,8 @@ class JsonExporter {
             if (cell.type == 6) 'isOutdoor':   true,
             if (cell.type == 5 && cell.connectsToMap  != null) 'connectsToMap':  cell.connectsToMap,
             if (cell.type == 5 && cell.connectsToNode != null) 'connectsToNode': cell.connectsToNode,
+            if (cell.qrId != null) 'qrId': cell.qrId,
+            if (cell.qrMemo != null) 'qrMemo': cell.qrMemo,
             if (cell.doorTop) 'doorTop': true,
             if (cell.doorBottom) 'doorBottom': true,
             if (cell.doorLeft) 'doorLeft': true,
@@ -90,11 +92,13 @@ class JsonExporter {
 
       final editorData = {
         'bgImageBase64': bgImageBytes != null ? base64Encode(bgImageBytes) : null,
-        'cells': grid.expand((row) => row).where((c) => c.type != 0 || c.name != null || c.wallTop || c.wallBottom || c.wallLeft || c.wallRight || c.doorTop || c.doorBottom || c.doorLeft || c.doorRight).map((c) => {
+        'cells': grid.expand((row) => row).where((c) => c.type != 0 || c.name != null || c.qrId != null || c.wallTop || c.wallBottom || c.wallLeft || c.wallRight || c.doorTop || c.doorBottom || c.doorLeft || c.doorRight).map((c) => {
           'x': c.x, 'y': c.y, 'type': c.type,
           if (c.name != null) 'name': c.name,
           if (c.connectsToMap != null) 'connectsToMap': c.connectsToMap,
           if (c.connectsToNode != null) 'connectsToNode': c.connectsToNode,
+          if (c.qrId != null) 'qrId': c.qrId,
+          if (c.qrMemo != null) 'qrMemo': c.qrMemo,
           if (c.wallTop) 'wallTop': true,
           if (c.wallBottom) 'wallBottom': true,
           if (c.wallLeft) 'wallLeft': true,
