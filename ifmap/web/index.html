@@ -4,15 +4,20 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <!-- スマホ表示。ダブルタップ拡大を切って地図側のピンチ操作に任せる -->
+  <!-- スマホ表示。ダブルタップ拡大を切って地図側のピンチ操作に任せる。
+       viewport-fit=cover は付けないこと。black-translucent と組み合わせると
+       standalone 起動時にコンテンツがステータスバーの下まで広がり、
+       描画位置とタップ判定が縦にずれる。 -->
   <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="見取り図ベースの屋内ナビゲーション infacilityMAP">
 
-  <!-- ホーム画面に追加したときフルスクリーンで開く(iOS) -->
+  <!-- ホーム画面に追加したときフルスクリーンで開く(iOS)。
+       status-bar-style は black（不透明）にしておく。translucent にすると
+       ステータスバー分だけタップ座標がずれる。 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="ifmap">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
@@ -36,7 +41,9 @@
 </head>
 <body>
   <!-- flutter build web が生成する起動スクリプト。
-       Service Worker の更新検知＆リロードもこの中でやってくれる。 -->
+       Flutter 3.41 のオフラインキャッシュ用 Service Worker は廃止済みで、
+       出力される flutter_service_worker.js は自分を登録解除するだけ。
+       更新は毎回ネットワークから読まれる（オフラインでは起動しない）。 -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
