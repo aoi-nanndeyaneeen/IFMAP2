@@ -207,6 +207,15 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final c = _controller;
+    // 最初に画面を触ったときにセンサー許可を自動で求める（Web のみ意味がある）。
+    // iOS はタッチを離した瞬間しか「ユーザー操作」と認めないので onPointerUp。
+    return Listener(
+      onPointerUp: (_) => c.autoEnableWebSensors(),
+      child: _buildScaffold(c),
+    );
+  }
+
+  Widget _buildScaffold(NavigationController c) {
     return Scaffold(
       drawer: _buildDrawer(),
       appBar: _buildAppBar(),

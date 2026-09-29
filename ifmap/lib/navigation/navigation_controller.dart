@@ -476,6 +476,18 @@ class NavigationController extends ChangeNotifier {
 
   void _onGpsSetting() => _tracker.setGpsEnabled(AppSettings.gpsEnabled.value);
 
+  bool _autoRequestedSensors = false;
+
+  /// 起動後最初のタップで、センサー許可を1度だけ自動で求める。
+  /// iOS はユーザー操作の中でしか許可ダイアログを出せないので、画面の
+  /// タップ(ポインタを離した瞬間)から呼んでもらう。断られた後や2回目以降は
+  /// 何もしない（コンパス欄のボタンからは何度でも求められる）。
+  void autoEnableWebSensors() {
+    if (_autoRequestedSensors || !sensorPermissionNeeded) return;
+    _autoRequestedSensors = true;
+    enableWebSensors();
+  }
+
   Future<void> enableWebSensors() async {
     final granted = await requestSensorPermission();
     sensorPermissionNeeded = !granted;
