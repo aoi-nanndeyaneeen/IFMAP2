@@ -7,6 +7,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../navigation/navigation_controller.dart';
@@ -80,6 +81,13 @@ class _SensorDebugSheetState extends State<_SensorDebugSheet> {
 
               const Text('値を手で流し込む',
                   style: TextStyle(fontWeight: FontWeight.bold)),
+              // 「押しても何も起きない」と誤解されやすいので用途を書いておく
+              Text(
+                '開発用。気圧計やGPSがない場所で、階・建物の切替提案の動きを'
+                '確かめるためのもの。センサーを有効にするボタンではない。'
+                '高度は値を入れてから押すこと。',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              ),
               TextField(
                 controller: _altitude,
                 keyboardType: const TextInputType.numberWithOptions(signed: true),
@@ -174,15 +182,47 @@ class _CompassDiagnosticsState extends State<_CompassDiagnostics> {
     super.dispose();
   }
 
+  /// 許可ダイアログを出す。ルートを出さなくても診断画面から直接試せるように
+  /// ここにも置いている。iOS はユーザー操作起点でないと拒否するのでボタンから呼ぶ。
+  Future<void> _request() async {
+    await requestSensorPermission();
+    if (mounted) setState(() {});
+  }
+
+  /// 診断結果を丸ごとクリップボードへ。スマホで1行ずつ読み上げるのは辛いので。
+  Future<void> _copy(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('診断結果をコピーしました')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lines =
+        sensorDiagnostics().entries.map((e) => '${e.key}: ${e.value}').toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('コンパス', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        for (final e in sensorDiagnostics().entries)
-          SelectableText('${e.key}: ${e.value}',
+        const SizedBox(height: 8),
+        Row(children: [
+          FilledButton.icon(
+            onPressed: _request,
+            icon: const Icon(Icons.explore, size: 18),
+            label: const Text('方位の許可を求める'),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: () => _copy(lines.join('\n')),
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('コピー'),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        for (final line in lines)
+          SelectableText(line,
               style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
       ],
     );
