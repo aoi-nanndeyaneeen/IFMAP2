@@ -21,9 +21,12 @@ import 'package:geolocator/geolocator.dart';
 
 import '../config.dart';
 import '../data/map_data.dart';
+import '../routing/route_calculator.dart';
 import '../routing/route_planner.dart';
 import '../sensors/heading_source.dart';
 import '../sensors/step_tracker.dart';
+import 'route_geometry.dart';
+import 'route_guide.dart';
 import 'suggestion_policy.dart';
 
 /// 画面に一度だけ出す短いお知らせ。
@@ -73,11 +76,21 @@ class NavigationController extends ChangeNotifier {
   PlaceRef? start;
   PlaceRef? goal;
 
+  /// 出発地の呼び名。QRコードの場所や案内を中断した地点のように、
+  /// [start] の name がノードID（node_12-34 など）になるときに使う。
+  String? _startDisplayName;
+
   /// フロアラベル -> そのフロア上で通るノードID。全フロア分を一度に持つ。
   Map<String, List<String>> floorPaths = {};
 
   /// 階をまたぐとき、次に進むフロア。
   String? nextFloorLabel;
+
+  /// 経路を計算している最中か。
+  bool routing = false;
+
+  /// 出発地と目的地があるのに経路が見つからなかった。
+  bool get routeNotFound => !routing && goal != null && floorPaths.isEmpty;
 
   bool followMode = false;
   bool showCompass = false;
@@ -88,6 +101,19 @@ class NavigationController extends ChangeNotifier {
 
   final Set<String> passedGates = {};
   GateInfo? nextGate;
+
+  /// 現在地を最後に確かめた（QR・チェックポイント・曲がり角）地点の、
+  /// 経路に沿った距離(JSON-px)。ここから歩いた分だけ誤差が増えていく。
+  double _fixPx = 0;
+
+  /// 出発地のフロアで、出発地から各場所までの徒歩距離(m)。
+  /// 検索結果や場所の情報に「ここから何m」を出すのに使う。
+  Map<String, double> placeDistances = const {};
+  String? placeDistancesLabel;
+  int _distanceRequest = 0;
+
+  final Map<String, RouteGeometry?> _geometryCache = {};
+  List<GuideStep>? _guideCache;
 
   // 高頻度に流れる値。マップの一部だけを描き直すために分けている。
   final position = ValueNotifier<Offset?>(null);
@@ -162,6 +188,7 @@ class NavigationController extends ChangeNotifier {
       _tracker.onHeading(h);
     });
     _listen(_tracker.correctionStream, (double px) {
+      _fixPx = _tracker.traveledPx;
       final m = px * AppConfig.metersPerPx;
       _say(AppMessage('曲がり角で現在地を補正しました'
           '（${m >= 0 ? '+' : ''}${m.toStringAsFixed(1)}m）'));
@@ -267,6 +294,7 @@ class NavigationController extends ChangeNotifier {
       final passed = _tracker.snapToNode(spot.nodeId);
       if (passed != null) {
         passedGates.addAll(passed);
+        _fixPx = _tracker.traveledPx;
         currentLabel = spot.label;
         _say(AppMessage('「$where」で現在地を補正しました'));
         _requestFocus(PlaceRef(spot.nodeId, spot.label));
@@ -307,11 +335,13 @@ class NavigationController extends ChangeNotifier {
   /// name がノードID（node_12-34 など）になるときに渡す。
   Future<void> setStart(PlaceRef place, {String? displayName}) {
     start = place;
+    _startDisplayName = displayName;
     currentLabel = place.label;
     trackerLabel = place.label;
     showCompass = true;
-    _say(AppMessage('現在地を「${displayName ?? place.name}」に設定しました'));
+    _say(AppMessage('現在地を「${displayName ?? placeTitle(place)}」に設定しました'));
     _requestFocus(place);
+    _computePlaceDistances();
     return _recalculate();
   }
 
@@ -323,10 +353,8 @@ class NavigationController extends ChangeNotifier {
     }
     goal = place;
     arrived = false;
-    followMode = true;
     // 経路は出発フロアから描き始めたいので表示を戻す。
     currentLabel = start!.label;
-    _say(AppMessage('目的地を「${place.name}」に設定しました'));
     return _recalculate();
   }
 
@@ -336,8 +364,55 @@ class NavigationController extends ChangeNotifier {
     unawaited(start == null ? setStart(place) : setGoal(place));
   }
 
+  /// 目的地に着いて案内を終える。着いた場所をそのまま現在地にするので、
+  /// 続けて次の目的地を選べる。
+  Future<void> finishNavigation() {
+    final g = goal;
+    if (g == null) return Future<void>.value();
+    start = g;
+    _startDisplayName = null;
+    goal = null;
+    arrived = false;
+    currentLabel = g.label;
+    trackerLabel = g.label;
+    _computePlaceDistances();
+    return _recalculate();
+  }
+
+  /// 途中で案内をやめる。歩いた分だけ進んだ地点を現在地として残す。
+  Future<void> cancelNavigation() {
+    if (goal == null) return Future<void>.value();
+    final here = _nodeAtTraveled();
+    if (here != null && _tracker.traveledPx > 0) {
+      start = PlaceRef(here, trackerLabel);
+      _startDisplayName = '案内を中断した地点';
+      currentLabel = trackerLabel;
+      _computePlaceDistances();
+    }
+    goal = null;
+    arrived = false;
+    return _recalculate();
+  }
+
+  /// 経路上で、いま推定している位置にいちばん近いノード。
+  String? _nodeAtTraveled() {
+    final path = physicalPath;
+    final geo = routeGeometry(trackerLabel);
+    if (path.isEmpty || geo == null) return null;
+    final t = _tracker.traveledPx;
+    var best = 0;
+    for (var i = 1; i < geo.cum.length && i < path.length; i++) {
+      if ((geo.cum[i] - t).abs() < (geo.cum[best] - t).abs()) best = i;
+    }
+    return path[best];
+  }
+
   void reset() {
     start = null;
+    _startDisplayName = null;
+    placeDistances = const {};
+    placeDistancesLabel = null;
+    _distanceRequest++;
     goal = null;
     floorPaths = {};
     nextFloorLabel = null;
@@ -362,9 +437,13 @@ class NavigationController extends ChangeNotifier {
     passedGates.clear();
     nextFloorLabel = null;
     traveledPx.value = 0;
+    _fixPx = 0;
+    _geometryCache.clear();
+    _guideCache = null;
 
     final s = start;
     final g = goal;
+    routing = false;
     if (s == null || g == null) {
       floorPaths = {};
       _tracker.clearRoute();
@@ -384,7 +463,9 @@ class NavigationController extends ChangeNotifier {
       return;
     }
 
-    floorPaths = await RoutePlanner.planAsync(RoutePlanRequest(
+    routing = true;
+    _notify();
+    final planned = await RoutePlanner.planAsync(RoutePlanRequest(
       nodesByLabel: repo.nodesByLabel,
       sectionLabels: AppConfig.mapSections.map((e) => e.label).toList(),
       startId: startId,
@@ -392,6 +473,12 @@ class NavigationController extends ChangeNotifier {
       startLabel: s.label,
       goalLabel: g.label,
     ));
+    // 計算している間に目的地が変わった・案内をやめた場合は捨てる。
+    if (start != s || goal != g) return;
+    routing = false;
+    floorPaths = planned;
+    _geometryCache.clear();
+    _guideCache = null;
 
     if (s.label != g.label) nextFloorLabel = _floorAfter(s.label, g.label);
 
@@ -440,9 +527,11 @@ class NavigationController extends ChangeNotifier {
       return;
     }
     start = PlaceRef(path.first, label);
+    _startDisplayName = '${AppConfig.floorNameOf(label)}の到着地点';
     currentLabel = label;
     trackerLabel = label;
     _tracker.resetAltitude();
+    _computePlaceDistances();
     await _recalculate();
     _requestFocus(start!);
   }
@@ -451,6 +540,7 @@ class NavigationController extends ChangeNotifier {
   void confirmGate(String gateKey) {
     passedGates.add(gateKey);
     _tracker.confirmGate(gateKey);
+    _fixPx = _tracker.traveledPx;
     _checkArrival();
     _notify();
   }
@@ -473,6 +563,15 @@ class NavigationController extends ChangeNotifier {
   void _onTraveled(double distance) {
     traveledPx.value = distance;
     _checkArrival();
+  }
+
+  /// 利用者が「着いた」と知らせた。歩数を数え損ねて最後まで進まない
+  /// ことがあるので、目的地のフロアにいれば自分で到着にできる。
+  void markArrived() {
+    if (arrived || goal == null || goal!.label != trackerLabel) return;
+    arrived = true;
+    if (!_disposed) _arrivals.add(goal!);
+    _notify();
   }
 
   void _checkArrival() {
@@ -557,12 +656,198 @@ class NavigationController extends ChangeNotifier {
     _notify();
   }
 
+  // ─── 表示と案内のための情報 ───────────────────────────────────
+
+  /// 場所の呼び名。ノードIDのままの出発地は、覚えている呼び名で返す。
+  String placeTitle(PlaceRef place) {
+    if (place == start && _startDisplayName != null) return _startDisplayName!;
+    if (place.name.startsWith('node_')) {
+      final spot = repo.qrSpotAt(place.label, place.name);
+      return spot?.memo ?? '地図上の地点';
+    }
+    return place.name.replaceAll('_', ' ');
+  }
+
+  /// [label] のフロアの経路を線として。経路がなければ null。
+  RouteGeometry? routeGeometry(String label) {
+    if (_geometryCache.containsKey(label)) return _geometryCache[label];
+    final path = floorPaths[label];
+    final floor = repo.floor(label);
+    RouteGeometry? geo;
+    if (path != null && path.isNotEmpty && floor != null) {
+      final s = start, g = goal;
+      geo = RouteGeometry.build(
+        path,
+        floor.nodes,
+        head: s != null && s.label == label ? floor.roomCenters[s.name] : null,
+        tail: g != null && g.label == label ? floor.roomCenters[g.name] : null,
+      );
+    }
+    return _geometryCache[label] = geo;
+  }
+
+  /// 経路が通るフロアを、通る順に。
+  List<String> get routeLabels => floorPaths.keys.toList(growable: false);
+
+  /// 歩いているフロアの案内の一覧。
+  List<GuideStep> get guideSteps {
+    final cached = _guideCache;
+    if (cached != null) return cached;
+    final geo = routeGeometry(trackerLabel);
+    if (geo == null || goal == null) return const [];
+    return _guideCache = RouteGuide.build(
+      corners: _tracker.corners,
+      gates: _tracker.orderedGates,
+      totalPx: geo.length,
+      end: _floorEndStep(geo.length),
+    );
+  }
+
+  /// いま案内している手順の番号（[guideSteps] の中）。なければ -1。
+  int get currentStepIndex =>
+      RouteGuide.currentIndex(guideSteps, _tracker.traveledPx, passedGates);
+
+  GuideStep _floorEndStep(double at) {
+    final g = goal!;
+    final next = nextFloorLabel;
+    if (g.label == trackerLabel || next == null) {
+      return GuideStep(
+          maneuver: Maneuver.arrive,
+          at: at,
+          title: '目的地に到着',
+          subtitle: placeTitle(g));
+    }
+    final here = AppConfig.sectionOf(trackerLabel);
+    final there = AppConfig.sectionOf(next);
+    final lastId = physicalPath.isEmpty ? null : physicalPath.last;
+    final lastNode =
+        lastId == null ? null : repo.floor(trackerLabel)?.nodes[lastId];
+    final via = lastNode is Map ? lastNode['name'] as String? : null;
+    final viaText = via?.replaceAll('_', ' ');
+    final sameBuilding = here != null &&
+        there != null &&
+        here.buildingName == there.buildingName &&
+        !here.outdoor &&
+        !there.outdoor;
+    if (sameBuilding && there.floorLevel != here.floorLevel) {
+      final up = there.floorLevel > here.floorLevel;
+      return GuideStep(
+        maneuver: up ? Maneuver.stairsUp : Maneuver.stairsDown,
+        at: at,
+        title: '${there.floorDisplayName}へ${up ? '上る' : '下りる'}',
+        subtitle: viaText,
+      );
+    }
+    return GuideStep(
+      maneuver: Maneuver.transfer,
+      at: at,
+      title: '${AppConfig.displayNameOf(next)}へ',
+      subtitle: viaText,
+    );
+  }
+
+  /// 目的地まで、残りのフロアも合わせた道のり(m)。経路がなければ null。
+  double? get remainingTotalMeters {
+    if (goal == null || floorPaths.isEmpty) return null;
+    final labels = routeLabels;
+    final here = labels.indexOf(trackerLabel);
+    if (here == -1) return null;
+    var px = 0.0;
+    final geo = routeGeometry(trackerLabel);
+    if (geo != null) {
+      px += (geo.length - _tracker.traveledPx).clamp(0.0, geo.length);
+    }
+    for (final label in labels.skip(here + 1)) {
+      px += routeGeometry(label)?.length ?? 0;
+    }
+    final floorChanges = labels.length - 1 - here;
+    return px * AppConfig.metersPerPx +
+        floorChanges * AppConfig.stairsEquivalentMeters;
+  }
+
+  /// 目的地までの所要時間の目安（秒）。
+  double? get remainingSeconds {
+    final m = remainingTotalMeters;
+    return m == null ? null : m / AppConfig.walkingSpeed;
+  }
+
+  /// 経路全体の道のり(m)。案内を始める前の概要に使う。経路がなければ null。
+  double? get totalRouteMeters {
+    if (floorPaths.isEmpty) return null;
+    var px = 0.0;
+    for (final label in routeLabels) {
+      px += routeGeometry(label)?.length ?? 0;
+    }
+    return px * AppConfig.metersPerPx +
+        (floorPaths.length - 1) * AppConfig.stairsEquivalentMeters;
+  }
+
+  /// 歩いているフロアの経路上のチェックポイント。
+  List<GateInfo> get checkpoints => _tracker.orderedGates;
+
+  /// 推定した現在地の誤差の目安(m)。最後に現在地を確かめてから
+  /// 歩いた距離の1割に、もとの誤差1mを足す。地図の青い円の大きさ。
+  double get positionUncertaintyMeters {
+    final walked = (_tracker.traveledPx - _fixPx).clamp(0.0, double.infinity);
+    return 1.0 + 0.1 * walked * AppConfig.metersPerPx;
+  }
+
+  /// 現在地（JSON-px）と、そのフロア。わからなければ null。
+  /// 案内中は歩数で進めた位置（表示用にならした経路の上）、
+  /// そうでなければ出発地の位置。
+  (Offset, String)? get currentLocation {
+    final s = start;
+    if (s == null) return null;
+    final geo = routeGeometry(trackerLabel);
+    if (geo != null && goal != null) {
+      return (geo.pointAt(_tracker.traveledPx), trackerLabel);
+    }
+    final center = repo.floor(s.label)?.centerOf(s.name);
+    return center == null ? null : (center, s.label);
+  }
+
+  /// 出発地から [place] までの徒歩距離(m)。出発地と同じフロアのときだけわかる。
+  double? walkingMetersTo(PlaceRef place) {
+    if (place.label != placeDistancesLabel) return null;
+    return placeDistances[place.name];
+  }
+
+  /// 出発地のフロアで、出発地から各場所までの徒歩距離を求めておく。
+  /// 画面の動きを止めないよう、少し遅らせてから計算する。
+  void _computePlaceDistances() {
+    final s = start;
+    final floor = s == null ? null : repo.floor(s.label);
+    final id = floor?.nodeIdOf(s!.name);
+    final request = ++_distanceRequest;
+    placeDistances = const {};
+    placeDistancesLabel = null;
+    if (floor == null || id == null) return;
+    unawaited(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      if (_disposed || request != _distanceRequest) return;
+      final byNode = await compute(RouteCalculator.distancesFromMessage,
+          <String, dynamic>{'start': id, 'nodes': floor.nodes});
+      if (_disposed || request != _distanceRequest) return;
+      final out = <String, double>{};
+      for (final e in floor.entryIdByName.entries) {
+        final d = byNode[e.value];
+        if (d != null) out[e.key] = d * AppConfig.metersPerPx;
+      }
+      placeDistances = out;
+      placeDistancesLabel = floor.label;
+      _notify();
+    }());
+  }
+
   // ─── デバッグ ─────────────────────────────────────────────────
 
   Map<String, String> get stepDiagnostics => _tracker.stepDiagnostics;
   Map<String, String> get turnDiagnostics => _tracker.turnDiagnostics;
 
   void debugInjectAltitude(double h) => _tracker.debugInjectAltitude(h);
+
+  /// 歩いたことにする（画面の確認・テスト用）。
+  void debugAdvanceSteps(int steps) => _tracker.debugAdvanceSteps(steps);
   void debugInjectGps(Position p) => _tracker.debugInjectGps(p);
 
   // ─── 後始末 ───────────────────────────────────────────────────

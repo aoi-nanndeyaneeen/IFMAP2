@@ -16,7 +16,9 @@ void main() {
     // テストでは未登録。何も流さないストリームとして応答させる。
     const channels = [
       'dev.fluttercommunity.plus/sensors/user_accel',
+      'dev.fluttercommunity.plus/sensors/accelerometer',
       'dev.fluttercommunity.plus/sensors/barometer',
+      'dev.fluttercommunity.plus/sensors/method',
       'hemanthraj/flutter_compass',
       'flutter.baseflow.com/geolocator_updates',
     ];
@@ -49,11 +51,12 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(MapScreen), findsOneWidget);
-    expect(find.byIcon(Icons.qr_code_scanner), findsOneWidget);
+    expect(find.byKey(const ValueKey('scan-qr')), findsOneWidget);
 
-    // フロア切り替えのチップは2枚以上読めたときだけ出る。
-    // ここが出ていれば、実アセットの読み込みが最後まで通っている。
-    expect(find.byType(ChoiceChip), findsWidgets);
+    // 階の切り替えには、読み込めた階のボタンが並ぶ。
+    // 最後の階まで出ていれば、実アセットの読み込みが最後まで通っている。
+    expect(find.byKey(const ValueKey('floor-NITTC_ground_1F')), findsOneWidget);
+    expect(find.byKey(const ValueKey('floor-NITTC_3F')), findsOneWidget);
 
     // 全フロア読み終わっているので進捗バーは消えている。
     expect(progress, findsNothing);

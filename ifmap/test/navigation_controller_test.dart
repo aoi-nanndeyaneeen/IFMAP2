@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ifmap/config.dart';
 import 'package:ifmap/data/map_data.dart';
 import 'package:ifmap/navigation/navigation_controller.dart';
+import 'package:ifmap/navigation/route_guide.dart';
 
 Map<String, dynamic> _node(int cellX, int cellY,
         {List<String> edges = const [],
@@ -203,5 +204,92 @@ void main() {
       expect(c.followMode, isFalse);
       expect(c.position.value, isNull);
     });
+  });
+
+  group('案内の情報', () {
+    setUp(() async {
+      await c.setStartByName('受付');
+      await c.setGoal(const PlaceRef('電算室', _f2));
+    });
+
+    test('道のりは全フロア分と、階段1回ぶんを足す', () {
+      // 1F: 20px, 2F: 20px = 2m、階段 12m
+      expect(c.totalRouteMeters, closeTo(2 + AppConfig.stairsEquivalentMeters, 1e-9));
+      expect(c.remainingTotalMeters, closeTo(c.totalRouteMeters!, 1e-9));
+    });
+
+    test('歩くと残りが減り、誤差の目安が増える', () {
+      final before = c.positionUncertaintyMeters;
+      c.debugAdvanceSteps(1);
+      expect(c.remainingTotalMeters, lessThan(c.totalRouteMeters!));
+      expect(c.positionUncertaintyMeters, greaterThan(before));
+    });
+
+    test('このフロアの案内は階段で次の階へ上るところで終わる', () {
+      final end = c.guideSteps.last;
+      expect(end.maneuver, Maneuver.stairsUp);
+      expect(end.title, '2Fへ上る');
+      expect(end.subtitle, '中央階段');
+    });
+
+    test('目的地のフロアでないと到着にしない', () {
+      c.markArrived();
+      expect(c.arrived, isFalse);
+    });
+
+    test('案内をやめても、歩いた先を現在地として残す', () async {
+      c.debugAdvanceSteps(1);
+      await c.cancelNavigation();
+
+      expect(c.goal, isNull);
+      expect(c.floorPaths, isEmpty);
+      expect(c.start!.label, _f1);
+      expect(c.start!.name, 'b');
+      expect(c.placeTitle(c.start!), '案内を中断した地点');
+    });
+  });
+
+  group('到着', () {
+    setUp(() async {
+      await c.setStartByName('受付');
+      await c.setGoal(const PlaceRef('中央階段', _f1));
+    });
+
+    test('「着いた」を知らせると到着になる', () async {
+      final arrivals = <PlaceRef>[];
+      c.arrivals.listen(arrivals.add);
+
+      c.markArrived();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(c.arrived, isTrue);
+      expect(arrivals, [const PlaceRef('中央階段', _f1)]);
+    });
+
+    test('案内を終えると目的地が現在地になる', () async {
+      c.markArrived();
+      await c.finishNavigation();
+
+      expect(c.start, const PlaceRef('中央階段', _f1));
+      expect(c.goal, isNull);
+      expect(c.arrived, isFalse);
+      expect(c.currentLocation?.$2, _f1);
+    });
+  });
+
+  test('つながっていない場所は「経路なし」と分かる', () async {
+    final repo = MapRepository();
+    repo.put(_floor(_f1, 1, {
+      'a': _node(0, 0, name: '受付'),
+      'z': _node(9, 9, name: '離れ'),
+    }));
+    final ctrl = NavigationController(repository: repo);
+    addTearDown(ctrl.dispose);
+
+    await ctrl.setStartByName('受付');
+    await ctrl.setGoal(const PlaceRef('離れ', _f1));
+
+    expect(ctrl.routing, isFalse);
+    expect(ctrl.routeNotFound, isTrue);
   });
 }

@@ -116,4 +116,36 @@ class RouteCalculator {
     }
     return path.reversed.toList();
   }
+
+  /// [start] から、たどり着けるすべてのノードまでの経路距離(JSON-px)。
+  /// 検索結果に「ここから何m」を出すために、1回の探索でまとめて求める。
+  static Map<String, double> distancesFrom(String start, Map<String, dynamic> nodes) {
+    final dist = <String, double>{};
+    if (!nodes.containsKey(start)) return dist;
+    final pq = PriorityQueue<MapEntry<String, double>>((a, b) => a.value.compareTo(b.value));
+    final best = <String, double>{start: 0};
+    pq.add(MapEntry(start, 0.0));
+    while (pq.isNotEmpty) {
+      final entry = pq.removeFirst();
+      final id = entry.key;
+      if (dist.containsKey(id)) continue;
+      dist[id] = entry.value;
+      final node = nodes[id];
+      if (node is! Map || node['edges'] == null) continue;
+      for (final neighbor in node['edges'] as List) {
+        if (neighbor is! String || dist.containsKey(neighbor)) continue;
+        if (!nodes.containsKey(neighbor)) continue;
+        final d = entry.value + _getDistance(id, neighbor, nodes);
+        if (d < (best[neighbor] ?? double.infinity)) {
+          best[neighbor] = d;
+          pq.add(MapEntry(neighbor, d));
+        }
+      }
+    }
+    return dist;
+  }
+
+  /// compute() 用。{'start': ID, 'nodes': ノード} を受け取る。
+  static Map<String, double> distancesFromMessage(Map<String, dynamic> m) =>
+      distancesFrom(m['start'] as String, (m['nodes'] as Map).cast<String, dynamic>());
 }

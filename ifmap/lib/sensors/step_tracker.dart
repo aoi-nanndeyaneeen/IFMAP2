@@ -474,6 +474,9 @@ class StepTracker {
   /// 屋内でGPSが出ないときに提案まわりの動きを確かめるためのもの。
   void debugInjectAltitude(double h) => _altCtrl.add(h);
 
+  /// デバッグ画面・画面の確認から歩いたことにする。
+  void debugAdvanceSteps(int steps) => advanceSteps(steps);
+
   void debugInjectGps(Position p) {
     _currentGps = p;
     _gpsCtrl.add(p);

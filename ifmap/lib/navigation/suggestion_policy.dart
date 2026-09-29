@@ -83,8 +83,8 @@ class SuggestionPolicy {
     return _emit(Suggestion(
       kind: SuggestionKind.floorChange,
       targetLabel: target.label,
-      title: '階層移動の検知',
-      message: '高度の変化を検知しました。${target.label} へ切り替えますか？',
+      title: '階を移動しましたか？',
+      message: '高度の変化を検知しました。${target.displayName} へ切り替えますか？',
     ));
   }
 
@@ -119,8 +119,8 @@ class SuggestionPolicy {
       found ??= Suggestion(
         kind: SuggestionKind.buildingSwitch,
         targetLabel: section.label,
-        title: '建物への接近',
-        message: '現在地が ${section.label} の入口付近です。マップを表示しますか？',
+        title: '${section.buildingName} に着きましたか？',
+        message: '${section.buildingName} の入口付近にいるようです。マップを表示しますか？',
       );
     }
 

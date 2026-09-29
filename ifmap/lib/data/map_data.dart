@@ -155,6 +155,14 @@ class MapRepository {
   /// QRコードのIDから設置位置を引く。登録されていなければ null。
   QrSpot? qrSpot(String id) => _qrSpots[id];
 
+  /// そのノードに置かれたQRコード。なければ null。
+  QrSpot? qrSpotAt(String label, String nodeId) {
+    for (final s in _qrSpots.values) {
+      if (s.label == label && s.nodeId == nodeId) return s;
+    }
+    return null;
+  }
+
   /// その名前が存在するフロアをすべて返す。
   List<String> labelsOf(String nameOrId) => _labelsByName[nameOrId] ?? const [];
 

@@ -20,15 +20,44 @@ class MapSection {
   final double? anchorLat;
   final double? anchorLng;
 
+  /// 画面に出す建物名（例: 豊田高専）。同じ建物のフロアは同じ値にする。
+  /// フロア切替はこの単位でまとめて出す。省略時は label の「_」より前。
+  final String? building;
+
+  /// 画面に出す階の名前（例: 1F、屋外）。省略時は label の最後の「_」より後。
+  final String? floorName;
+
+  /// 屋外の案内図（構内図）か。建物の中の図と塗り分けを変える
+  /// （芝生の地、建物に影をつける など）。
+  final bool outdoor;
+
   const MapSection({
     required this.path,
     required this.label,
     this.floorLevel = 1,
     this.anchorLat,
     this.anchorLng,
+    this.building,
+    this.floorName,
+    this.outdoor = false,
   });
 
   bool get hasAnchor => anchorLat != null && anchorLng != null;
+
+  String get buildingName {
+    if (building != null) return building!;
+    final i = label.indexOf('_');
+    return i <= 0 ? label : label.substring(0, i);
+  }
+
+  String get floorDisplayName {
+    if (floorName != null) return floorName!;
+    final i = label.lastIndexOf('_');
+    return i < 0 ? label : label.substring(i + 1);
+  }
+
+  /// 「豊田高専 2F」のような、利用者向けの呼び名。
+  String get displayName => '$buildingName $floorDisplayName';
 }
 
 class AppConfig {
@@ -45,6 +74,9 @@ class AppConfig {
       path: 'assets/NITTC/NITTC_ground_1F.json',
       label: 'NITTC_ground_1F',
       floorLevel: 1,
+      building: '豊田高専',
+      floorName: '屋外',
+      outdoor: true,
       anchorLat: 35.151, // 正門付近
       anchorLng: 136.924,
     ),
@@ -52,17 +84,55 @@ class AppConfig {
       path: 'assets/NITTC/NITTC_1F.json',
       label: 'NITTC_1F',
       floorLevel: 1,
+      building: '豊田高専',
+      floorName: '1F',
       anchorLat: 35.151,
       anchorLng: 136.924,
     ),
-    MapSection(path: 'assets/NITTC/NITTC_2F.json', label: 'NITTC_2F', floorLevel: 2),
-    MapSection(path: 'assets/NITTC/NITTC_3F.json', label: 'NITTC_3F', floorLevel: 3),
+    MapSection(
+        path: 'assets/NITTC/NITTC_2F.json',
+        label: 'NITTC_2F',
+        floorLevel: 2,
+        building: '豊田高専',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/NITTC/NITTC_3F.json',
+        label: 'NITTC_3F',
+        floorLevel: 3,
+        building: '豊田高専',
+        floorName: '3F'),
 
     // --- HOME ---
     // anchorLat/Lng は未設定。設定するとGPSで建物接近を検知できる。
-    MapSection(path: 'assets/home/home_1F.json', label: 'HOME_1F', floorLevel: 1),
-    MapSection(path: 'assets/home/home_2F.json', label: 'HOME_2F', floorLevel: 2),
+    MapSection(
+        path: 'assets/home/home_1F.json',
+        label: 'HOME_1F',
+        floorLevel: 1,
+        building: '自宅',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/home/home_2F.json',
+        label: 'HOME_2F',
+        floorLevel: 2,
+        building: '自宅',
+        floorName: '2F'),
   ];
+
+  /// ラベルからマップ定義を引く。見つからなければ null。
+  static MapSection? sectionOf(String label) {
+    for (final s in mapSections) {
+      if (s.label == label) return s;
+    }
+    return null;
+  }
+
+  /// 利用者向けの呼び名。定義がなければラベルそのまま。
+  static String displayNameOf(String label) =>
+      sectionOf(label)?.displayName ?? label;
+
+  /// 階だけの呼び名（1F など）。
+  static String floorNameOf(String label) =>
+      sectionOf(label)?.floorDisplayName ?? label;
 
   // ── 座標系と縮尺 ───────────────────────────────────────────────
   // エディタは「マス目」で編集し、JSON には マス番号 × pxPerCell を書き出す。
@@ -83,6 +153,13 @@ class AppConfig {
   // ── 歩数による推測航法 ─────────────────────────────────────────
   /// 平均歩幅(m)。実測でキャリブレーションする。
   static const double strideMeters = 0.7;
+
+  /// 所要時間の見積もりに使う歩く速さ(m/秒)。屋内で人を探しながら
+  /// 歩くので、屋外の標準(1.3)より少し遅めにしてある。
+  static const double walkingSpeed = 1.1;
+
+  /// 階段1回ぶんを平地の何mとみなすか。所要時間の見積もり用。
+  static const double stairsEquivalentMeters = 12.0;
 
   /// 1歩あたりの JSON-px 数。= 0.7 / 0.05 = 14.0 px
   static const double stepLengthPx = strideMeters / metersPerPx;
