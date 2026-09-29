@@ -15,6 +15,16 @@
 //                行き先が明示されているので最優先。
 //   isStairs   : 接続点がないときの代替。両フロアで name が一致する階段を
 //                同じ階段とみなして対応づける。
+//
+// どの階段を使うかは、通るフロアを「フロア番号つきの1つのグラフ」として
+// まとめて最短経路を探して決める。フロアごとに最寄りの階段を選ぶと、
+// 降りた先のフロアで目的地側へ歩いて行けない（同じフロアでも通路が
+// つながっていない棟がある）ときに行き止まりへ案内してしまうため。
+// 階移動の辺は次のフロアへの一方通行なので、各フロアは経路上に
+// ひと続きで1回だけ現れる。
+import 'dart:math' as math;
+
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
 import 'route_calculator.dart';
@@ -120,41 +130,126 @@ class RoutePlanner {
     if (sIdx == -1 || gIdx == -1) return result;
 
     final direction = gIdx > sIdx ? 1 : -1;
-    var entryId = r.startId;
+    final labels = <String>[
+      for (var i = sIdx; direction > 0 ? i <= gIdx : i >= gIdx; i += direction)
+        r.sectionLabels[i],
+    ];
+    final floors = <Map<String, dynamic>>[
+      for (final label in labels) r.nodesByLabel[label] ?? const <String, dynamic>{},
+    ];
+    final transitions = <Map<String, String>>[
+      for (var i = 0; i < labels.length - 1; i++)
+        _transitions(floors[i], labels[i], floors[i + 1], labels[i + 1]),
+    ];
 
-    for (var i = sIdx; direction > 0 ? i <= gIdx : i >= gIdx; i += direction) {
-      final label = r.sectionLabels[i];
-      final nodes = r.nodesByLabel[label] ?? const <String, dynamic>{};
+    final path = _layeredDijkstra(floors, transitions, r.startId, r.goalId);
+    if (path == null) return result;
+    for (final (floor, id) in path) {
+      result.putIfAbsent(labels[floor], () => <String>[]).add(id);
+    }
+    return result;
+  }
 
-      if (i == gIdx) {
-        final path = RouteCalculator.dijkstra(entryId, r.goalId, nodes);
-        if (path.isNotEmpty) result[label] = path;
-        break;
+  /// [from] フロアから [to] フロアへ抜ける出口と、そこから出た先の降り口。
+  /// 出口ノードID -> [to] 側の降り口ノードID。
+  static Map<String, String> _transitions(Map<String, dynamic> from,
+      String fromLabel, Map<String, dynamic> to, String toLabel) {
+    final out = <String, String>{};
+
+    final connectors = connectorsTo(from, toLabel);
+    if (connectors.isNotEmpty) {
+      for (final id in connectors) {
+        final entry =
+            _connectorEntry(to, fromLabel, from[id]?['name'] as String?);
+        if (entry != null) out[id] = entry;
       }
-
-      final nextLabel = r.sectionLabels[i + direction];
-      final nextNodes = r.nodesByLabel[nextLabel] ?? const <String, dynamic>{};
-
-      // 接続点があればそれを使い、なければ名前の一致する階段を使う。
-      final connectors = connectorsTo(nodes, nextLabel);
-      final exits = connectors.isNotEmpty
-          ? connectors
-          : matchingStairs(nodes, nextNodes);
-      if (exits.isEmpty) break;
-
-      final path = RouteCalculator.dijkstraToAny(entryId, exits, nodes);
-      if (path.isEmpty) break;
-      result[label] = path;
-
-      final exitId = path.last;
-      final nextEntry = connectors.contains(exitId)
-          ? _connectorEntry(nextNodes, label, nodes[exitId]?['name'] as String?)
-          : _stairsEntry(nextNodes, nodes[exitId]?['name'] as String?);
-      if (nextEntry == null) break;
-      entryId = nextEntry;
+      return out;
     }
 
-    return result;
+    // 同じ名前の階段はフロア内で何マスもあるので、降り口は名前ごとに
+    // 最初に見つかったマスにそろえる。
+    final arrivalByName = <String, String>{};
+    for (final e in to.entries) {
+      final v = e.value;
+      if (v is Map && v['isStairs'] == true && v['name'] is String) {
+        arrivalByName.putIfAbsent(v['name'] as String, () => e.key);
+      }
+    }
+    for (final id in matchingStairs(from, to)) {
+      final entry = arrivalByName[from[id]?['name']];
+      if (entry != null) out[id] = entry;
+    }
+    return out;
+  }
+
+  /// フロア番号つきのノード (floor, id) を状態にしたダイクストラ法。
+  /// フロア内は通常の辺（ユークリッド距離）、フロア間は [transitions] の
+  /// 一方通行の辺（コスト0）でつなぐ。行けなければ null。
+  static List<(int, String)>? _layeredDijkstra(
+    List<Map<String, dynamic>> floors,
+    List<Map<String, String>> transitions,
+    String startId,
+    String goalId,
+  ) {
+    final last = floors.length - 1;
+    if (!floors.first.containsKey(startId) || !floors[last].containsKey(goalId)) {
+      return null;
+    }
+
+    final dist = [for (var i = 0; i <= last; i++) <String, double>{}];
+    final prev = [for (var i = 0; i <= last; i++) <String, (int, String)>{}];
+    final done = [for (var i = 0; i <= last; i++) <String>{}];
+    final queue = PriorityQueue<(double, int, String)>((a, b) => a.$1.compareTo(b.$1));
+
+    void relax(int floor, String id, double d, (int, String) from) {
+      if (d < (dist[floor][id] ?? double.infinity)) {
+        dist[floor][id] = d;
+        prev[floor][id] = from;
+        queue.add((d, floor, id));
+      }
+    }
+
+    dist[0][startId] = 0;
+    queue.add((0, 0, startId));
+
+    while (queue.isNotEmpty) {
+      final (d, floor, id) = queue.removeFirst();
+      if (!done[floor].add(id)) continue;
+      if (floor == last && id == goalId) break;
+
+      final nodes = floors[floor];
+      final node = nodes[id];
+      if (node is! Map) continue;
+
+      for (final e in (node['edges'] as List? ?? const [])) {
+        final next = nodes[e];
+        if (next is! Map) continue;
+        relax(floor, e as String, d + _distance(node, next), (floor, id));
+      }
+
+      if (floor < last) {
+        final arrival = transitions[floor][id];
+        if (arrival != null && floors[floor + 1].containsKey(arrival)) {
+          relax(floor + 1, arrival, d, (floor, id));
+        }
+      }
+    }
+
+    if (!done[last].contains(goalId)) return null;
+
+    final path = <(int, String)>[];
+    (int, String)? cur = (last, goalId);
+    while (cur != null) {
+      path.add(cur);
+      cur = prev[cur.$1][cur.$2];
+    }
+    return path.reversed.toList();
+  }
+
+  static double _distance(Map a, Map b) {
+    final dx = (a['x'] as num) - (b['x'] as num);
+    final dy = (a['y'] as num) - (b['y'] as num);
+    return math.sqrt(dx * dx + dy * dy);
   }
 
   /// [toLabel] へ抜ける接続点のノードID。
@@ -216,17 +311,5 @@ class RoutePlanner {
       fallback ??= e.key;
     }
     return fallback;
-  }
-
-  /// 階段で上がった先のフロアでの降り口（同じ name の階段）。
-  static String? _stairsEntry(Map<String, dynamic> nextNodes, String? exitName) {
-    if (exitName == null) return null;
-    for (final e in nextNodes.entries) {
-      final v = e.value;
-      if (v is Map && v['isStairs'] == true && v['name'] == exitName) {
-        return e.key;
-      }
-    }
-    return null;
   }
 }

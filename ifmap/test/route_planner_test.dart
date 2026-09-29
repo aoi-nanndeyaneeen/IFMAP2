@@ -124,6 +124,69 @@ void main() {
       expect(result['F3']!.last, 'goal');
     });
 
+    test('最寄りの階段の先が行き止まりなら、目的地に届く階段を選ぶ', () {
+      // 実マップで起きたこと: 3F で最寄りの中央階段を選ぶと、1F では
+      // 中央階段側と目的地側の通路がつながっておらず行き止まりになった。
+      // F1: start -- a1(階段A)        すぐ隣
+      //     start -- m1 -- m2 -- b1(階段B)  遠い
+      // F2: a2(階段A) は孤立。b2(階段B) -- goal
+      final nodes = {
+        'F1': {
+          'start': _node(0, 0, ['a1', 'm1']),
+          'a1': _node(1, 0, ['start'], {'isStairs': true, 'name': '階段A'}),
+          'm1': _node(0, 1, ['start', 'm2']),
+          'm2': _node(0, 2, ['m1', 'b1']),
+          'b1': _node(0, 3, ['m2'], {'isStairs': true, 'name': '階段B'}),
+        },
+        'F2': {
+          'a2': _node(1, 0, <String>[], {'isStairs': true, 'name': '階段A'}),
+          'b2': _node(0, 3, ['goal'], {'isStairs': true, 'name': '階段B'}),
+          'goal': _node(1, 3, ['b2']),
+        },
+      };
+      final result = RoutePlanner.plan(RoutePlanRequest(
+        nodesByLabel: nodes,
+        sectionLabels: labels,
+        startId: 'start',
+        goalId: 'goal',
+        startLabel: 'F1',
+        goalLabel: 'F2',
+      ));
+      expect(result['F1'], ['start', 'm1', 'm2', 'b1']);
+      expect(result['F2'], ['b2', 'goal']);
+    });
+
+    test('途中のフロアを歩いて別の階段に乗り換えられる', () {
+      // 3F -(中央階段)-> 2F を歩く -(情報棟階段)-> 1F、の形。
+      final nodes = {
+        'F1': {
+          'x1': _node(5, 0, ['goal'], {'isStairs': true, 'name': '情報棟階段'}),
+          'c1': _node(0, 0, <String>[], {'isStairs': true, 'name': '中央階段'}),
+          'goal': _node(6, 0, ['x1']),
+        },
+        'F2': {
+          'c2': _node(0, 0, ['w'], {'isStairs': true, 'name': '中央階段'}),
+          'w': _node(2, 0, ['c2', 'x2']),
+          'x2': _node(5, 0, ['w'], {'isStairs': true, 'name': '情報棟階段'}),
+        },
+        'F3': {
+          'start': _node(0, 1, ['c3']),
+          'c3': _node(0, 0, ['start'], {'isStairs': true, 'name': '中央階段'}),
+        },
+      };
+      final result = RoutePlanner.plan(RoutePlanRequest(
+        nodesByLabel: nodes,
+        sectionLabels: labels,
+        startId: 'start',
+        goalId: 'goal',
+        startLabel: 'F3',
+        goalLabel: 'F1',
+      ));
+      expect(result['F3'], ['start', 'c3']);
+      expect(result['F2'], ['c2', 'w', 'x2']);
+      expect(result['F1'], ['x1', 'goal']);
+    });
+
     test('階段も接続点もなければ途中で打ち切る', () {
       final result = RoutePlanner.plan(RoutePlanRequest(
         nodesByLabel: {
