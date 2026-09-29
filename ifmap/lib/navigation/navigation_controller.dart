@@ -550,6 +550,8 @@ class NavigationController extends ChangeNotifier {
 
   // ─── デバッグ ─────────────────────────────────────────────────
 
+  Map<String, String> get stepDiagnostics => _tracker.stepDiagnostics;
+
   void debugInjectAltitude(double h) => _tracker.debugInjectAltitude(h);
   void debugInjectGps(Position p) => _tracker.debugInjectGps(p);
 

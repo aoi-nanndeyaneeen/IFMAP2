@@ -123,6 +123,30 @@ void main() {
     });
   });
 
+  group('歩数で進む', () {
+    test('歩幅ずつ進み、次のチェックポイントで止まる', () {
+      // 廊下10マス(100px)の先に部屋。部屋に入るゲートは廊下の終わり付近。
+      final nodes = <String, dynamic>{
+        for (var x = 0; x < 10; x++) 'h$x': _node(x, 0, CellType.corridor),
+        'r': _node(10, 0, CellType.room, name: '教室'),
+      };
+      tracker.setRoute([for (var x = 0; x < 10; x++) 'h$x', 'r'], nodes);
+      final gatePx = tracker.totalRoutePx; // 部屋の手前
+
+      tracker.advanceSteps(2);
+      expect(tracker.traveledPx, 2 * AppConfig.stepLengthPx);
+
+      tracker.advanceSteps(100);
+      expect(tracker.traveledPx, lessThanOrEqualTo(gatePx));
+      expect(tracker.nextGate!.label, '「教室」に入る');
+    });
+
+    test('経路がなければ進まない', () {
+      tracker.advanceSteps(3);
+      expect(tracker.traveledPx, 0);
+    });
+  });
+
   group('チェックポイントの確認', () {
     setUp(() {
       tracker.setRoute(['a', 'h', 'b'], {

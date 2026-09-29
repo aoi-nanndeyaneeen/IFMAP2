@@ -1,6 +1,7 @@
 // lib/sensors/motion_source_web.dart
 //
-// Web用。devicemotion イベントの acceleration（重力を除いた加速度）を使う。
+// Web用。devicemotion イベントの accelerationIncludingGravity（重力込み）と
+// event.timeStamp を使う。
 // iOS では DeviceMotionEvent.requestPermission() で許可を得るまでイベントが
 // 来ない。許可は heading_source_web.dart が方位と一緒に取り、取れたら
 // reattachMotionListener() でここの listener を張り直す。
@@ -9,7 +10,9 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 
-final _controller = StreamController<double>.broadcast();
+import 'motion_sample.dart';
+
+final _controller = StreamController<MotionSample>.broadcast();
 
 JSFunction? _listener;
 
@@ -17,7 +20,7 @@ JSFunction? _listener;
 int _eventCount = 0;
 String _lastMagnitude = 'never seen';
 
-Stream<double> userAccelerationMagnitude() {
+Stream<MotionSample> accelerationSamples() {
   _attach();
   return _controller.stream;
 }
@@ -45,25 +48,25 @@ void _detach() {
 void _onMotion(JSObject event) {
   _eventCount++;
 
-  // acceleration は重力を除いた値。これを持たない端末もあり、その場合は
-  // accelerationIncludingGravity しかないが、重力の 9.8 が乗っていて
-  // しきい値判定に使えないので捨てる。
-  final acc = event.getProperty<JSObject?>('acceleration'.toJS);
+  final acc = event.getProperty<JSObject?>('accelerationIncludingGravity'.toJS);
   if (acc == null) {
-    _lastMagnitude = 'acceleration=null';
+    _lastMagnitude = 'accelerationIncludingGravity=null';
     return;
   }
   double axis(String name) =>
       acc.getProperty<JSNumber?>(name.toJS)?.toDartDouble ?? 0;
   final x = axis('x'), y = axis('y'), z = axis('z');
   final magnitude = math.sqrt(x * x + y * y + z * z);
+  // timeStamp はページを開いてからのミリ秒（DOMHighResTimeStamp）。
+  final ms = event.getProperty<JSNumber?>('timeStamp'.toJS)?.toDartDouble;
+  if (ms == null) return;
   _lastMagnitude = magnitude.toStringAsFixed(2);
-  _controller.add(magnitude);
+  _controller.add(MotionSample(ms / 1000, magnitude));
 }
 
 Map<String, String> motionDiagnostics() => {
       'implementation': 'devicemotion (web)',
       'listenerAttached': '${_listener != null}',
       'rawEventCount': '$_eventCount',
-      'last magnitude (m/s²)': _lastMagnitude,
+      'last |a| (m/s², 静止で約9.8)': _lastMagnitude,
     };

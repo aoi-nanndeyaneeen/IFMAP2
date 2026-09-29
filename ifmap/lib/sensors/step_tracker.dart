@@ -19,6 +19,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import '../config.dart';
 import '../data/map_data.dart';
 import 'motion_source.dart';
+import 'step_detector.dart';
 
 /// 経路上のチェックポイント1件。
 @immutable
@@ -60,7 +61,7 @@ class StepTracker {
   Map<String, dynamic> _nodes = {};
   List<double> _cumDist = [];
   double _traveled = 0;
-  bool _cooldown = false;
+  final StepDetector _detector = StepDetector();
   List<_Gate> _gates = [];
   int _gateIdx = 0;
 
@@ -232,8 +233,8 @@ class StepTracker {
     if (_accelSub != null) return;
     try {
       // Web では sensors_plus の加速度が iPhone で動かないので motion_source 経由。
-      _accelSub = userAccelerationMagnitude().listen(
-        _onAcceleration,
+      _accelSub = accelerationSamples().listen(
+        _onMotionSample,
         onError: (Object err) => debugPrint('加速度センサ: $err'),
       );
     } catch (e) {
@@ -241,19 +242,36 @@ class StepTracker {
     }
   }
 
-  /// [mag] は重力を除いた加速度の大きさ(m/s²)。
-  void _onAcceleration(double mag) {
-    if (_cooldown || !hasRoute) return;
-    if (mag <= AppConfig.stepAccelThreshold) return;
+  void _onMotionSample(MotionSample s) {
+    // 検出器は経路がなくても回し続ける（歩行の判定には数秒の履歴が要る）。
+    final steps = _detector.addSample(s.t, s.magnitude);
+    if (steps > 0) advanceSteps(steps);
+  }
 
-    _cooldown = true;
+  /// [steps] 歩ぶん経路に沿って進める。経路がなければ何もしない。
+  @visibleForTesting
+  void advanceSteps(int steps) {
+    if (!hasRoute || steps <= 0) return;
     // 次のチェックポイントより先へは進ませない。そこで位置を確定させるため。
     final cap = _gateIdx < _gates.length ? _gates[_gateIdx].px : totalRoutePx;
-    _traveled = (_traveled + stepLengthPx).clamp(0.0, cap);
+    _traveled = (_traveled + stepLengthPx * steps).clamp(0.0, cap);
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
-    Future.delayed(AppConfig.stepCooldown, () => _cooldown = false);
   }
+
+  /// 歩行検出の状態。デバッグ画面に出す。
+  Map<String, String> get stepDiagnostics => {
+        '歩行中': _detector.isWalking ? 'はい' : 'いいえ',
+        '検出した歩数': '${_detector.totalSteps}',
+        '揺れの大きさ(標準偏差)': '${_detector.lastStd.toStringAsFixed(2)} m/s²'
+            '（${_detector.minStd} 未満は静止）',
+        '周期': _detector.lastPeriod == 0
+            ? '—'
+            : '${_detector.lastPeriod.toStringAsFixed(2)} 秒'
+                '（歩行は ${_detector.minPeriod}〜${_detector.maxPeriod}）',
+        '周期性(自己相関)': '${_detector.lastCorrelation.toStringAsFixed(2)}'
+            '（${_detector.minCorrelation} 以上で歩行）',
+      };
 
   Future<void> _startGps() async {
     _gpsSub?.cancel();

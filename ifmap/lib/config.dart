@@ -87,11 +87,7 @@ class AppConfig {
   /// 1歩あたりの JSON-px 数。= 0.7 / 0.05 = 14.0 px
   static const double stepLengthPx = strideMeters / metersPerPx;
 
-  /// これを超える加速度(m/s^2)を1歩とみなす。
-  static const double stepAccelThreshold = 1.0;
-
-  /// 1歩を数えたあと次の歩を受け付けないクールダウン。
-  static const Duration stepCooldown = Duration(milliseconds: 400);
+  // 1歩の検出は sensors/step_detector.dart（周期性とリズムで判定）。
 
   // ── 高度・気圧 ───────────────────────────────────────────────
   /// 階移動を検知する高度差(m)。
