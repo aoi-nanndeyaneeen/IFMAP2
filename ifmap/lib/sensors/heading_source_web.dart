@@ -10,6 +10,8 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'motion_source_web.dart';
+
 final _controller = StreamController<double>.broadcast();
 
 // ── 診断用。方位が取れないときの原因切り分けに使う ──────────────
@@ -58,9 +60,11 @@ Future<bool> requestSensorPermission() async {
   await _request(_motionEventClass);
 
   if (granted) {
-    // 許可前に張った listener にはイベントが来ないので張り直す
+    // 許可前に張った listener にはイベントが来ないので張り直す。
+    // 歩数用の devicemotion も同じ許可で動き出すので一緒に張り直す。
     _detach();
     _attach();
+    reattachMotionListener();
   }
   return granted;
 }

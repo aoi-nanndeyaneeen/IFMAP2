@@ -18,6 +18,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import '../config.dart';
 import '../data/map_data.dart';
+import 'motion_source.dart';
 
 /// 経路上のチェックポイント1件。
 @immutable
@@ -187,7 +188,8 @@ class StepTracker {
   void _startAccelerometer() {
     if (_accelSub != null) return;
     try {
-      _accelSub = userAccelerometerEventStream().listen(
+      // Web では sensors_plus の加速度が iPhone で動かないので motion_source 経由。
+      _accelSub = userAccelerationMagnitude().listen(
         _onAcceleration,
         onError: (Object err) => debugPrint('加速度センサ: $err'),
       );
@@ -196,9 +198,9 @@ class StepTracker {
     }
   }
 
-  void _onAcceleration(UserAccelerometerEvent e) {
+  /// [mag] は重力を除いた加速度の大きさ(m/s²)。
+  void _onAcceleration(double mag) {
     if (_cooldown || !hasRoute) return;
-    final mag = sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
     if (mag <= AppConfig.stepAccelThreshold) return;
 
     _cooldown = true;

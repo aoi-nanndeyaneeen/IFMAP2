@@ -10,8 +10,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../config.dart';
 import '../navigation/navigation_controller.dart';
 import '../sensors/heading_source.dart';
+import '../sensors/motion_source.dart';
 
 Future<void> showSensorDebugSheet(
   BuildContext context,
@@ -124,6 +126,9 @@ class _SensorDebugSheetState extends State<_SensorDebugSheet> {
               ]),
               const Divider(height: 24),
 
+              _StepDiagnostics(controller: c),
+              const Divider(height: 24),
+
               const _CompassDiagnostics(),
             ],
           ),
@@ -221,6 +226,59 @@ class _CompassDiagnosticsState extends State<_CompassDiagnostics> {
           ),
         ]),
         const SizedBox(height: 8),
+        for (final line in lines)
+          SelectableText(line,
+              style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+      ],
+    );
+  }
+}
+
+/// 歩数による現在地推定の状態を0.5秒ごとに出す。
+/// 「加速度が来ていない」のか「チェックポイントで止まっている」のかを見分ける。
+class _StepDiagnostics extends StatefulWidget {
+  final NavigationController controller;
+  const _StepDiagnostics({required this.controller});
+
+  @override
+  State<_StepDiagnostics> createState() => _StepDiagnosticsState();
+}
+
+class _StepDiagnosticsState extends State<_StepDiagnostics> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    final traveledM = c.traveledPx.value * AppConfig.metersPerPx;
+    final lines = <String>[
+      for (final e in motionDiagnostics().entries) '${e.key}: ${e.value}',
+      'しきい値: ${AppConfig.stepAccelThreshold} m/s²（これを超えると1歩）',
+      '経路: ${c.currentPath.isEmpty ? 'なし（経路がないと歩数は数えない）' : '${c.currentPath.length} ノード'}',
+      '進んだ距離: ${traveledM.toStringAsFixed(1)} m',
+      '次のチェックポイント: ${c.nextGate?.label ?? 'なし'}'
+          '${c.nextGate != null ? '（通過をタップするまでここで止まる）' : ''}',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('歩数（現在地の推定）',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
         for (final line in lines)
           SelectableText(line,
               style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
