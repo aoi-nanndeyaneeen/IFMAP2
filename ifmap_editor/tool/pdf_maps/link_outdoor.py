@@ -6,6 +6,7 @@
 #   2. 1Fの外形を、構内図(PDF 1ページ目)のその建物の形に重ねる（4方向を試して
 #      いちばん重なる向き）。同じ変換で出入口を構内図へ移す
 #   3. 屋外図のマスで、そこにいちばん近い歩ける所（道）を接続点にする
+# あわせて、構内図の建物の形を屋外図に「装飾(建物)」のマスとして描き、建物名を付ける。
 #   両方の接続点に同じ名前（例: 大志寮_玄関）を付けて対応づける。
 #
 # 屋外図は手で作ったものなので、書き換えたマスには元の type を origType に残し、
@@ -63,7 +64,10 @@ def page_to_bg(px, py, page_h):
     return ZOOM * (page_h - py) - OX, ZOOM * px - OY
 
 
-def campus_masks(doc):
+def campus_masks(doc, table=None, exact=False):
+    """構内図で、建物名の文字の位置から白い塗りを広げて建物の形を取る。
+    {key: (形の画素マスク, 種の位置[(x, y)])}。"""
+    table = table or CAMPUS_NAME
     page = doc[0]
     H = page.rect.height
     lines = text_lines(page)
@@ -72,27 +76,108 @@ def campus_masks(doc):
     a = np.frombuffer(pix.samples, np.uint8).reshape(pix.h, pix.w)
     a = cv2.rotate(a, cv2.ROTATE_90_CLOCKWISE)[OY:, OX:]
     light = (a > 200).astype(np.uint8)
-    masks = {}
-    for key, names in CAMPUS_NAME.items():
+    out = {}
+    for key, names in table.items():
         m = np.zeros_like(light)
+        seeds = []
         for name in names:
-            hits = [(x, y) for t, x, y in lines if name in t]
+            hits = [(x, y) for t, x, y in lines if (t == name if exact else name in t)]
             if not hits:
                 print('  構内図に見つからない:', name); continue
-            bx, by = page_to_bg(hits[0][0], hits[0][1], H)
-            seed = (int(bx), int(by))
-            # 文字のあった所が白くなければ、近くの白い所から
-            if not light[seed[1], seed[0]]:
-                ys, xs = np.where(light[seed[1] - 8:seed[1] + 9, seed[0] - 8:seed[0] + 9])
-                if len(ys) == 0: continue
-                i = np.argmin((ys - 8) ** 2 + (xs - 8) ** 2)
-                seed = (seed[0] + xs[i] - 8, seed[1] + ys[i] - 8)
-            ff = light.copy()
-            fm = np.zeros((ff.shape[0] + 2, ff.shape[1] + 2), np.uint8)
-            cv2.floodFill(ff, fm, seed, 2)
-            m |= (ff == 2).astype(np.uint8)
-        masks[key] = m
-    return masks
+            for hx, hy in hits:
+                bx, by = page_to_bg(hx, hy, H)
+                seed = (int(bx), int(by))
+                if not (0 <= seed[0] < light.shape[1] and 0 <= seed[1] < light.shape[0]): continue
+                # 文字のあった所が白くなければ、近くの白い所から
+                if not light[seed[1], seed[0]]:
+                    ys, xs = np.where(light[max(seed[1] - 8, 0):seed[1] + 9, max(seed[0] - 8, 0):seed[0] + 9])
+                    if len(ys) == 0: continue
+                    i = np.argmin((ys - 8) ** 2 + (xs - 8) ** 2)
+                    seed = (seed[0] + xs[i] - 8, seed[1] + ys[i] - 8)
+                ff = light.copy()
+                fm = np.zeros((ff.shape[0] + 2, ff.shape[1] + 2), np.uint8)
+                cv2.floodFill(ff, fm, seed, 2)
+                grown = (ff == 2)
+                # 建物の輪郭が閉じていないと道へ漏れて構内じゅうに広がる。そういうものは捨てる
+                if grown.sum() > 0.03 * grown.size:
+                    print(f'  {name}: 形が閉じていないので使わない'); continue
+                m |= grown.astype(np.uint8)
+                seeds.append(seed)
+        out[key] = (m, seeds)
+    return out
+
+
+# 屋外図に建物として描く（名前も出す）もの。構内図の文字 → 表示名。
+# 改行で割れた名前は、割れた先頭の行で探す。exact=True なので行全体が一致するもの。
+BUILDINGS = {
+    '友志寮': ['友志寮'], '輝志寮': ['輝志寮'], '栄志寮': ['栄志寮'], '高志寮': ['高志寮'],
+    '明志寮': ['明志寮'], '創志寮': ['創志寮'], '大志寮': ['大志寮'],
+    '福利施設（食堂）': ['福利施設'], '福利厚生会館（学生課）': ['福利厚生会館'], '合宿研修所': ['合宿'],
+    '専攻科棟': ['専攻科棟'], 'ものづくりセンター': ['ものづくり'], '社会連携共創センター': ['社会連携'],
+    'ボイラー室': ['ボイラ'], '材料・構造物疲労試験センター': ['材料・'],
+    '建築学科棟': ['建築学科棟'], '電気・電子システム工学科棟': ['電気・電子システム工学科棟'],
+    '一般管理棟': ['一般管理棟'], '情報工学科棟': ['情報工学科棟'], '環境都市工学科棟': ['環境都市工学科棟'],
+    '第2講義棟': ['講義棟'], '機械工学科棟': ['機械工学科棟'], '第1講義棟': ['第1講義棟'],
+    '創造工房棟': ['創造工房棟'], '新講義棟': ['新講義棟'], '豊田記念会館': ['豊田'],
+    '守衛室': ['守'], '電気室': ['電気室'], '倉庫': ['倉庫'], '車庫': ['車庫'], '器具庫': ['器具庫'],
+    '廃水処理施設': ['廃水'], '的場': ['的場'],
+}
+
+
+def paint_buildings(doc, ground, cw, ch):
+    """屋外図の空いているマス（と名前のない建物のマス）を、構内図の建物の形で
+    「装飾(建物)」にして名前を付ける。道・部屋・接続点のマスには触らない。"""
+    ge = ground['_editorData']
+    R, C = ge['rows'], ge['cols']
+    cells = {(c['x'], c['y']): c for c in ge['cells']}
+    # 前回塗ったものを戻す
+    for key, c in list(cells.items()):
+        if c.pop('autoBuilding', False):
+            orig = c.pop('origType', None)
+            c.pop('name', None)
+            if orig is None:
+                del cells[key]
+            else:
+                c['type'] = orig
+    masks = campus_masks(doc, BUILDINGS, exact=True)
+    # 小さな建物の輪郭が道とつながっていると、まわりの道まで広がって
+    # スカスカの形になる（電気室）。本棟のように1つの形に名前がいくつも
+    # 乗っているもの以外で、外接矩形の4割も埋まっていない形は使わない。
+    for name, (m, seeds) in list(masks.items()):
+        ys, xs = np.where(m)
+        if len(ys) == 0: continue
+        fill = len(ys) / ((np.ptp(ys) + 1) * (np.ptp(xs) + 1))
+        shared = sum(1 for n2, (m2, _) in masks.items() if n2 != name and m2[ys[0], xs[0]])
+        if fill < 0.4 and not shared:
+            print(f'  {name}: 形がまわりの道まで広がっているので使わない')
+            masks[name] = (m, [])
+    painted = collections.Counter()
+    for gy in range(R):
+        for gx in range(C):
+            c = cells.get((gx, gy))
+            if c is not None and (c['type'] not in (0, 10) or c.get('name')):
+                continue
+            px, py = int((gx + 0.5) * cw), int((gy + 0.5) * ch)
+            best = None
+            for name, (m, seeds) in masks.items():
+                if not seeds or py >= m.shape[0] or px >= m.shape[1] or not m[py, px]: continue
+                # 1つの形に名前がいくつも乗っているとき（本棟）は、いちばん近い名前
+                d = min((sx - px) ** 2 + (sy - py) ** 2 for sx, sy in seeds)
+                if best is None or d < best[0]: best = (d, name)
+            if best is None: continue
+            if c is None:
+                c = {'x': gx, 'y': gy, 'type': 10}
+                cells[(gx, gy)] = c
+            else:
+                c['origType'] = c['type']
+                c['type'] = 10
+            c['name'] = best[1]
+            c['autoBuilding'] = True
+            painted[best[1]] += 1
+    ge['cells'] = sorted(cells.values(), key=lambda c: (c['y'], c['x']))
+    missing = [n for n in BUILDINGS if not painted[n]]
+    print('  建物を描いた:', ' '.join(f'{n}({k})' for n, k in painted.items()))
+    if missing: print('  描けなかった:', ' '.join(missing))
 
 
 def plan_entrances(fl, doc):
@@ -203,7 +288,7 @@ def main():
         pcells = {(c['x'], c['y']): c for c in pe['cells']}
         clip, z, cols, rows, cell_pt = geom(fl)
         foot = np.load(f'{WORK}/{label}_foot.npy')
-        fit = best_fit(foot, masks.get(key, np.zeros(1)))
+        fit = best_fit(foot, masks[key][0] if key in masks else np.zeros(1))
         if fit is None or fit[0] is None:
             print(f'  {label}: 構内図で建物の形が取れない'); continue
         (k, (cx0, cy0, cx1, cy1), iou), (fx0, fy0, fx1, fy1) = fit
@@ -223,6 +308,7 @@ def main():
             make_connector(ground, gn[1], gn[2], name, label)
             report.append(f'  {name}: 向き{k * 90}° 重なり{iou:.2f} 道まで{math.sqrt(gn[0]):.1f}マス')
         save(path, plan)
+    paint_buildings(doc, ground, cw, ch)
     save(OUTDOOR_PATH, ground)
     print('\n'.join(report))
 
