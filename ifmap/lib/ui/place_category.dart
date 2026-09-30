@@ -313,6 +313,18 @@ class PlaceCategories {
 /// 画面ではスペースに置き換えて読みやすくする。
 String displayPlaceName(String name) => name.replaceAll('_', ' ');
 
+/// 地図の上に書く部屋名。名前が「建物_階_部屋」の階層になっているときは、
+/// いま見ている建物と階の部分を省く（地図の上では分かりきっているため）。
+/// 例: 大志寮_2F_食室 → 食室、大志寮_階段A → 階段A、伊藤_研究室 → 伊藤 研究室
+String mapLabelName(String name, {required String building, required String floor}) {
+  var rest = name;
+  if (rest.startsWith('${building}_')) {
+    rest = rest.substring(building.length + 1);
+    if (rest.startsWith('${floor}_')) rest = rest.substring(floor.length + 1);
+  }
+  return displayPlaceName(rest);
+}
+
 /// 検索用に表記ゆれをならす。全角英数を半角に、ひらがなをカタカナに、
 /// 大文字を小文字にし、空白と区切り記号を落とす。
 String normalizeForSearch(String s) {

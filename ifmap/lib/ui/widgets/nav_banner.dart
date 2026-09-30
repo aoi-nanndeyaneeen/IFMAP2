@@ -21,7 +21,9 @@ class NavBanner extends StatelessWidget {
   /// その次の手順。
   final GuideStep? next;
 
-  /// チェックポイントの通過を知らせる。[step] がチェックポイントのときだけ。
+  /// 近くの目印（扉・曲がり角など）。ここを通ったと知らせると現在地が合う。
+  /// 歩数だけで進むので押さなくてもよい。ずれが溜まっていそうなときだけ渡す。
+  final GuideStep? fixStep;
   final VoidCallback? onConfirmCheckpoint;
 
   /// 階の移り目に着いたことを知らせる（例: 2Fに着いた）。
@@ -36,6 +38,7 @@ class NavBanner extends StatelessWidget {
     required this.step,
     required this.distanceM,
     this.next,
+    this.fixStep,
     this.onConfirmCheckpoint,
     this.advanceLabel,
     this.onAdvance,
@@ -44,11 +47,10 @@ class NavBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final checkpoint = step.isCheckpoint && onConfirmCheckpoint != null;
-    final atCheckpoint = checkpoint && distanceM < 3;
+    final fix = fixStep != null && onConfirmCheckpoint != null ? fixStep : null;
     final distanceText = step.maneuver == Maneuver.arrive && distanceM < 3
         ? 'まもなく到着'
-        : (atCheckpoint ? '通ったらタップ' : formatStepDistance(distanceM));
+        : formatStepDistance(distanceM);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,22 +114,38 @@ class NavBanner extends StatelessWidget {
                   ),
                 ),
               ]),
-              if (checkpoint || onAdvance != null) ...[
+              if (onAdvance != null) ...[
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   height: 46,
                   child: FilledButton.icon(
-                    key: const ValueKey('confirm-step'),
+                    key: const ValueKey('advance-step'),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: AppColors.guidance,
                     ),
-                    onPressed: checkpoint ? onConfirmCheckpoint : onAdvance,
-                    icon: Icon(checkpoint ? Icons.check_circle : Icons.stairs),
-                    label: Text(checkpoint
-                        ? '${_pastTense(step)}（現在地を合わせる）'
-                        : advanceLabel ?? '次へ'),
+                    onPressed: onAdvance,
+                    icon: Icon(advanceLabel == '到着した' ? Icons.sports_score : Icons.stairs),
+                    label: Text(advanceLabel ?? '次へ'),
+                  ),
+                ),
+              ] else if (fix != null) ...[
+                // 押さなくても進む。ずれていたら直せる、という控えめな出し方にする。
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('confirm-step'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0x99FFFFFF)),
+                    ),
+                    onPressed: onConfirmCheckpoint,
+                    icon: Icon(maneuverIcon(fix.maneuver), size: 18),
+                    label: Text('${_fixText(fix)} → 位置を合わせる',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ],
@@ -175,6 +193,16 @@ class NavBanner extends StatelessWidget {
         ]),
       ],
     );
+  }
+
+  static String _fixText(GuideStep s) {
+    final name = s.subtitle == null ? '' : '「${s.subtitle}」';
+    return switch (s.maneuver) {
+      Maneuver.enterRoom => '$nameに入った',
+      Maneuver.exitRoom => '$nameから出た',
+      Maneuver.checkpoint => '地図の印に着いた',
+      _ => _pastTense(s),
+    };
   }
 
   static String _pastTense(GuideStep s) => switch (s.maneuver) {

@@ -48,6 +48,8 @@ class NavigationController extends ChangeNotifier {
             StepTracker(
               turnCheckpoints: true,
               cornerBoost: AppConfig.cornerStepBoost,
+              autoAdvance: true,
+              calibrateStride: true,
             ) {
     _policy = SuggestionPolicy(distanceBetween: Geolocator.distanceBetween);
   }
@@ -172,8 +174,17 @@ class NavigationController extends ChangeNotifier {
 
   /// 目的地が別フロアにあり、いまのフロアでやることが残っていない状態。
   /// このときだけ「次のフロアへ進む」ボタンを出す。
+  ///
+  /// チェックポイントが残っていても、フロアの終わりの近くまで来ていれば出す
+  /// （歩数を数え損ねて最後まで進まないことがあるため）。
   bool get canAdvanceFloor =>
-      nextGate == null && nextFloorLabel != null && goal?.label != trackerLabel;
+      nextFloorLabel != null &&
+      goal?.label != trackerLabel &&
+      (nextGate == null ||
+          (_tracker.totalRoutePx - _tracker.traveledPx) * AppConfig.metersPerPx <
+              _nearEndMeters);
+
+  static const double _nearEndMeters = 15;
 
   // ─── 起動 ─────────────────────────────────────────────────────
 
@@ -182,6 +193,10 @@ class NavigationController extends ChangeNotifier {
     _listen(_tracker.traveledStream, _onTraveled);
     _listen(_tracker.nextGateStream, (GateInfo? g) {
       nextGate = g;
+      // 歩いて自動で通過したチェックポイントも済んだことにする。
+      passedGates
+        ..clear()
+        ..addAll(_tracker.passedGateKeys);
       _notify();
     });
     _listen(_tracker.altitudeStream, _onAltitude);
@@ -542,8 +557,12 @@ class NavigationController extends ChangeNotifier {
 
   /// 経路上のチェックポイントをユーザーが通過確認した。
   void confirmGate(String gateKey) {
-    passedGates.add(gateKey);
     _tracker.confirmGate(gateKey);
+    nextGate = _tracker.nextGate;
+    passedGates
+      ..clear()
+      ..addAll(_tracker.passedGateKeys)
+      ..add(gateKey);
     _fixPx = _tracker.traveledPx;
     _checkArrival();
     _notify();
@@ -792,6 +811,41 @@ class NavigationController extends ChangeNotifier {
 
   /// 推定した現在地の誤差の目安(m)。最後に現在地を確かめてから
   /// 歩いた距離の1割に、もとの誤差1mを足す。地図の青い円の大きさ。
+  /// 最後に位置を確かめてから歩いた距離(m)。
+  double get walkedSinceFixMeters =>
+      (_tracker.traveledPx - _fixPx).clamp(0.0, double.infinity) *
+      AppConfig.metersPerPx;
+
+  /// いまの位置の近く（前後8m）にあるチェックポイント。通過済みも含む。
+  /// 「ここを通った」とタップして位置を合わせる候補。
+  GateInfo? get nearbyCheckpoint {
+    const range = 8.0 / AppConfig.metersPerPx;
+    final t = _tracker.traveledPx;
+    GateInfo? best;
+    var bestD = range;
+    for (final g in _tracker.orderedGates) {
+      final d = ((g.px ?? 0) - t).abs();
+      if (d <= bestD) {
+        best = g;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /// 位置を合わせるタップを勧めるか。
+  ///
+  /// 歩数だけでも近い距離ならほぼずれない（直線30mで誤差1m程度）ので、
+  /// 最後に位置を確かめてから [fixSuggestMeters] 以上歩いたときだけ勧める。
+  /// 短い案内ではタップを一度も求めない。
+  bool get suggestFix =>
+      nearbyCheckpoint != null && walkedSinceFixMeters >= fixSuggestMeters;
+
+  static const double fixSuggestMeters = 12;
+
+  /// 学んだ歩幅の倍率（1.0 が標準）。診断画面に出す。
+  double get strideScale => _tracker.strideScale;
+
   double get positionUncertaintyMeters {
     final walked = (_tracker.traveledPx - _fixPx).clamp(0.0, double.infinity);
     return 1.0 + 0.1 * walked * AppConfig.metersPerPx;

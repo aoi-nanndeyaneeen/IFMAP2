@@ -1,0 +1,2919 @@
+{
+ "campus": "豊田高専",
+ "note": "場所の階層: 区域 / 建物 / 階 / 部屋。id はマップJSONのノード名(name)と同じ。label は ifmap の MapSection.label。",
+ "areas": [
+  {
+   "name": "校舎",
+   "buildings": [
+    {
+     "name": "一般管理棟"
+    },
+    {
+     "name": "第1講義棟",
+     "floors": [
+      {
+       "floor": "2F",
+       "label": "NITTC_2F",
+       "rooms": [
+        {
+         "name": "外階段",
+         "id": "第1講義棟外階段"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "第2講義棟",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "NITTC_1F",
+       "rooms": [
+        {
+         "name": "外階段",
+         "id": "第2講義棟外階段"
+        },
+        {
+         "name": "階段",
+         "id": "第2講義棟階段"
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "NITTC_2F",
+       "rooms": [
+        {
+         "name": "外階段",
+         "id": "第2講義棟外階段"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "新講義棟",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "NITTC_1F",
+       "rooms": [
+        {
+         "name": "階段",
+         "id": "新講義棟階段"
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "NITTC_2F",
+       "rooms": [
+        {
+         "name": "外階段",
+         "id": "新講義棟外階段"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "機械工学科棟",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "NITTC_1F",
+       "rooms": [
+        {
+         "name": "女子トイレ",
+         "id": "機械工学科棟女子トイレ"
+        },
+        {
+         "name": "男子トイレ",
+         "id": "機械工学科棟男子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "機械工学科棟階段"
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "NITTC_2F",
+       "rooms": [
+        {
+         "name": "女子トイレ",
+         "id": "機械工学科棟女子トイレ"
+        },
+        {
+         "name": "教員室",
+         "id": "機械工学科棟教員室"
+        },
+        {
+         "name": "男子トイレ",
+         "id": "機械工学科棟男子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "機械工学科棟階段"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "電気・電子システム工学科棟"
+    },
+    {
+     "name": "情報工学科棟",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "NITTC_1F",
+       "rooms": [
+        {
+         "name": "女子トイレ",
+         "id": "情報工学科棟女子トイレ"
+        },
+        {
+         "name": "男子トイレ",
+         "id": "情報工学科棟男子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "情報工学科棟階段"
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "NITTC_2F",
+       "rooms": [
+        {
+         "name": "女子トイレ",
+         "id": "情報工学科棟女子トイレ"
+        },
+        {
+         "name": "男子トイレ",
+         "id": "情報工学科棟男子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "情報工学科棟階段"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "環境都市工学科棟",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "NITTC_1F",
+       "rooms": [
+        {
+         "name": "男子トイレ",
+         "id": "環境都市工学科棟男子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "環境都市工学科棟階段"
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "NITTC_2F",
+       "rooms": [
+        {
+         "name": "女子トイレ",
+         "id": "環境都市工学科棟女子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "環境都市工学科棟階段"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "建築学科棟",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "NITTC_1F",
+       "rooms": [
+        {
+         "name": "男子トイレ",
+         "id": "建築学科棟男子トイレ"
+        },
+        {
+         "name": "車いすトイレ",
+         "id": "建築学科棟車いすトイレ"
+        },
+        {
+         "name": "階段",
+         "id": "建築学科棟階段"
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "NITTC_2F",
+       "rooms": [
+        {
+         "name": "女子トイレ",
+         "id": "建築学科棟女子トイレ"
+        },
+        {
+         "name": "教員室",
+         "id": "建築学科棟教員室"
+        },
+        {
+         "name": "男子トイレ",
+         "id": "建築学科棟男子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "建築学科棟階段"
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "NITTC_3F",
+       "rooms": [
+        {
+         "name": "女子トイレ",
+         "id": "建築学科棟女子トイレ"
+        },
+        {
+         "name": "男子トイレ",
+         "id": "建築学科棟男子トイレ"
+        },
+        {
+         "name": "階段",
+         "id": "建築学科棟階段"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "専攻科棟"
+    },
+    {
+     "name": "図書館"
+    },
+    {
+     "name": "豊田記念会館"
+    },
+    {
+     "name": "創造工房棟"
+    },
+    {
+     "name": "ものづくりセンター"
+    },
+    {
+     "name": "社会連携共創センター"
+    },
+    {
+     "name": "材料・構造物疲労試験センター"
+    }
+   ]
+  },
+  {
+   "name": "学寮",
+   "buildings": [
+    {
+     "name": "友志寮",
+     "mapBuilding": "友志寮",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "YUSHI_1F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "友志寮_1F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "友志寮_1F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "友志寮_1F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "友志寮_1F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "友志寮_階段A",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "YUSHI_2F",
+       "rooms": [
+        {
+         "name": "洗面WC",
+         "id": "友志寮_2F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "食室コミュニケーションスペース",
+         "id": "友志寮_2F_食室コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "友志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "友志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "YUSHI_3F",
+       "rooms": [
+        {
+         "name": "洗面WC",
+         "id": "友志寮_3F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "食室コミュニケーションスペース",
+         "id": "友志寮_3F_食室コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "友志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "友志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "輝志寮",
+     "mapBuilding": "輝志寮",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "KISHI_1F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "輝志寮_1F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "輝志寮_1F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "WCシャワー",
+         "id": "輝志寮_1F_WCシャワー",
+         "isStairs": false
+        },
+        {
+         "name": "シャワーWC",
+         "id": "輝志寮_1F_シャワーWC",
+         "isStairs": false
+        },
+        {
+         "name": "ランドリースペース",
+         "id": "輝志寮_1F_ランドリースペース",
+         "isStairs": false
+        },
+        {
+         "name": "留学生食室(1)",
+         "id": "輝志寮_1F_留学生食室(1)",
+         "isStairs": false
+        },
+        {
+         "name": "留学生食室(2)",
+         "id": "輝志寮_1F_留学生食室(2)",
+         "isStairs": false
+        },
+        {
+         "name": "管理室(1)",
+         "id": "輝志寮_1F_管理室(1)",
+         "isStairs": false
+        },
+        {
+         "name": "管理室(2)",
+         "id": "輝志寮_1F_管理室(2)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "輝志寮_階段A",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "KISHI_2F",
+       "rooms": [
+        {
+         "name": "WCシャワー",
+         "id": "輝志寮_2F_WCシャワー",
+         "isStairs": false
+        },
+        {
+         "name": "シャワーWC(1)",
+         "id": "輝志寮_2F_シャワーWC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワーWC(2)",
+         "id": "輝志寮_2F_シャワーWC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワーWC(3)",
+         "id": "輝志寮_2F_シャワーWC(3)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "輝志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "輝志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "KISHI_3F",
+       "rooms": [
+        {
+         "name": "WCシャワー",
+         "id": "輝志寮_3F_WCシャワー",
+         "isStairs": false
+        },
+        {
+         "name": "シャワーWC(1)",
+         "id": "輝志寮_3F_シャワーWC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワーWC(2)",
+         "id": "輝志寮_3F_シャワーWC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワーWC(3)",
+         "id": "輝志寮_3F_シャワーWC(3)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "輝志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "輝志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "栄志寮",
+     "mapBuilding": "栄志寮",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "EISHI_1F",
+       "rooms": [
+        {
+         "name": "WC",
+         "id": "栄志寮_1F_WC",
+         "isStairs": false
+        },
+        {
+         "name": "コミュニケーションスペース",
+         "id": "栄志寮_1F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "栄志寮_1F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "当直教員室",
+         "id": "栄志寮_1F_当直教員室",
+         "isStairs": false
+        },
+        {
+         "name": "浴室",
+         "id": "栄志寮_1F_浴室",
+         "isStairs": false
+        },
+        {
+         "name": "食室",
+         "id": "栄志寮_1F_食室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "栄志寮_階段A",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "EISHI_2F",
+       "rooms": [
+        {
+         "name": "WC",
+         "id": "栄志寮_2F_WC",
+         "isStairs": false
+        },
+        {
+         "name": "コミュニケーションスペース",
+         "id": "栄志寮_2F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "栄志寮_2F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "集会室",
+         "id": "栄志寮_2F_集会室",
+         "isStairs": false
+        },
+        {
+         "name": "食室",
+         "id": "栄志寮_2F_食室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "栄志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "栄志寮_階段B",
+         "isStairs": true
+        },
+        {
+         "name": "階段C",
+         "id": "栄志寮_階段C",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "EISHI_3F",
+       "rooms": [
+        {
+         "name": "WC",
+         "id": "栄志寮_3F_WC",
+         "isStairs": false
+        },
+        {
+         "name": "コミュニケーションスペース",
+         "id": "栄志寮_3F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "栄志寮_3F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "食室",
+         "id": "栄志寮_3F_食室",
+         "isStairs": false
+        },
+        {
+         "name": "階段B",
+         "id": "栄志寮_階段B",
+         "isStairs": true
+        },
+        {
+         "name": "階段C",
+         "id": "栄志寮_階段C",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "高志寮",
+     "mapBuilding": "高志寮",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "KOSHI_1F",
+       "rooms": [
+        {
+         "name": "WC",
+         "id": "高志寮_1F_WC",
+         "isStairs": false
+        },
+        {
+         "name": "コミュニケーションスペース",
+         "id": "高志寮_1F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー",
+         "id": "高志寮_1F_シャワー",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "高志寮_1F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "高志寮_1F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "浴室",
+         "id": "高志寮_1F_浴室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "高志寮_階段A",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "KOSHI_2F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "高志寮_2F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "高志寮_2F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "高志寮_2F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "高志寮_2F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "高志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "高志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "KOSHI_3F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "高志寮_3F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "高志寮_3F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "高志寮_3F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "高志寮_3F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "高志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "高志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "4F",
+       "label": "KOSHI_4F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "高志寮_4F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "高志寮_4F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "高志寮_4F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "高志寮_4F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "高志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "高志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "明志寮",
+     "mapBuilding": "明志寮",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "MEISHI_1F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "明志寮_1F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "明志寮_1F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "明志寮_1F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "リネン室",
+         "id": "明志寮_1F_リネン室",
+         "isStairs": false
+        },
+        {
+         "name": "日直室",
+         "id": "明志寮_1F_日直室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "明志寮_1F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "明志寮_階段A",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "MEISHI_2F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "明志寮_2F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "明志寮_2F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "明志寮_2F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "明志寮_2F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "明志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "明志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "MEISHI_3F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "明志寮_3F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "明志寮_3F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "明志寮_3F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "明志寮_3F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "明志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "明志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "4F",
+       "label": "MEISHI_4F",
+       "rooms": [
+        {
+         "name": "コミュニケーションスペース",
+         "id": "明志寮_4F_コミュニケーションスペース",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ",
+         "id": "明志寮_4F_ラーニングコモンズ",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "明志寮_4F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面WC",
+         "id": "明志寮_4F_洗面WC",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "明志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "明志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "創志寮",
+     "mapBuilding": "創志寮",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "SOSHI_1F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "創志寮_1F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "創志寮_1F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室(1)",
+         "id": "創志寮_1F_シャワー洗濯室(1)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室(2)",
+         "id": "創志寮_1F_シャワー洗濯室(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室(3)",
+         "id": "創志寮_1F_シャワー洗濯室(3)",
+         "isStairs": false
+        },
+        {
+         "name": "当直室",
+         "id": "創志寮_1F_当直室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(1)",
+         "id": "創志寮_1F_洗面(1)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(2)",
+         "id": "創志寮_1F_洗面(2)",
+         "isStairs": false
+        },
+        {
+         "name": "食室(1)",
+         "id": "創志寮_1F_食室(1)",
+         "isStairs": false
+        },
+        {
+         "name": "食室(2)",
+         "id": "創志寮_1F_食室(2)",
+         "isStairs": false
+        },
+        {
+         "name": "食室(3)",
+         "id": "創志寮_1F_食室(3)",
+         "isStairs": false
+        },
+        {
+         "name": "食室(4)",
+         "id": "創志寮_1F_食室(4)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "創志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "創志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "SOSHI_2F",
+       "rooms": [
+        {
+         "name": "WC",
+         "id": "創志寮_2F_WC",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(1)",
+         "id": "創志寮_2F_洗面(1)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(2)",
+         "id": "創志寮_2F_洗面(2)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "創志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "創志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "SOSHI_3F",
+       "rooms": [
+        {
+         "name": "WC",
+         "id": "創志寮_3F_WC",
+         "isStairs": false
+        },
+        {
+         "name": "WC談話コーナー",
+         "id": "創志寮_3F_WC談話コーナー",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(1)",
+         "id": "創志寮_3F_洗面(1)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(2)",
+         "id": "創志寮_3F_洗面(2)",
+         "isStairs": false
+        },
+        {
+         "name": "談話コーナー",
+         "id": "創志寮_3F_談話コーナー",
+         "isStairs": false
+        },
+        {
+         "name": "食室",
+         "id": "創志寮_3F_食室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "創志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "創志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "4F",
+       "label": "SOSHI_4F",
+       "rooms": [
+        {
+         "name": "WC",
+         "id": "創志寮_4F_WC",
+         "isStairs": false
+        },
+        {
+         "name": "WC談話コーナー",
+         "id": "創志寮_4F_WC談話コーナー",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(1)",
+         "id": "創志寮_4F_洗面(1)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面(2)",
+         "id": "創志寮_4F_洗面(2)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "創志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "創志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "大志寮",
+     "mapBuilding": "大志寮",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "TAISHI_1F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "大志寮_1F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "大志寮_1F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室洗面所",
+         "id": "大志寮_1F_シャワー洗濯室洗面所",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(1)",
+         "id": "大志寮_1F_ラーニングコモンズ(1)",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(2)",
+         "id": "大志寮_1F_ラーニングコモンズ(2)",
+         "isStairs": false
+        },
+        {
+         "name": "寮母室",
+         "id": "大志寮_1F_寮母室",
+         "isStairs": false
+        },
+        {
+         "name": "当直室",
+         "id": "大志寮_1F_当直室",
+         "isStairs": false
+        },
+        {
+         "name": "洗濯室",
+         "id": "大志寮_1F_洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "洗面所",
+         "id": "大志寮_1F_洗面所",
+         "isStairs": false
+        },
+        {
+         "name": "浴室",
+         "id": "大志寮_1F_浴室",
+         "isStairs": false
+        },
+        {
+         "name": "静養室",
+         "id": "大志寮_1F_静養室",
+         "isStairs": false
+        },
+        {
+         "name": "食室談話室(1)",
+         "id": "大志寮_1F_食室談話室(1)",
+         "isStairs": false
+        },
+        {
+         "name": "食室談話室(2)",
+         "id": "大志寮_1F_食室談話室(2)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "大志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "大志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "TAISHI_2F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "大志寮_2F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "大志寮_2F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー室",
+         "id": "大志寮_2F_シャワー室",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "大志寮_2F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(1)",
+         "id": "大志寮_2F_ラーニングコモンズ(1)",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(2)",
+         "id": "大志寮_2F_ラーニングコモンズ(2)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面所(1)",
+         "id": "大志寮_2F_洗面所(1)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面所(2)",
+         "id": "大志寮_2F_洗面所(2)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "大志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "大志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "3F",
+       "label": "TAISHI_3F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "大志寮_3F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "大志寮_3F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "大志寮_3F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(1)",
+         "id": "大志寮_3F_ラーニングコモンズ(1)",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(2)",
+         "id": "大志寮_3F_ラーニングコモンズ(2)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面所(1)",
+         "id": "大志寮_3F_洗面所(1)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面所(2)",
+         "id": "大志寮_3F_洗面所(2)",
+         "isStairs": false
+        },
+        {
+         "name": "食室談話室",
+         "id": "大志寮_3F_食室談話室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "大志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "大志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "4F",
+       "label": "TAISHI_4F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "大志寮_4F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "大志寮_4F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "シャワー洗濯室",
+         "id": "大志寮_4F_シャワー洗濯室",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(1)",
+         "id": "大志寮_4F_ラーニングコモンズ(1)",
+         "isStairs": false
+        },
+        {
+         "name": "ラーニングコモンズ(2)",
+         "id": "大志寮_4F_ラーニングコモンズ(2)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面所(1)",
+         "id": "大志寮_4F_洗面所(1)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面所(2)",
+         "id": "大志寮_4F_洗面所(2)",
+         "isStairs": false
+        },
+        {
+         "name": "食室談話室",
+         "id": "大志寮_4F_食室談話室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "大志寮_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "大志寮_階段B",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "福利厚生施設",
+   "buildings": [
+    {
+     "name": "福利施設(食堂)",
+     "mapBuilding": "福利厚生会館・食堂",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "WELFARE_1F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "福利厚生会館・食堂_1F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "福利厚生会館・食堂_1F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(3)",
+         "id": "福利厚生会館・食堂_1F_WC(3)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(4)",
+         "id": "福利厚生会館・食堂_1F_WC(4)",
+         "isStairs": false
+        },
+        {
+         "name": "休憩室",
+         "id": "福利厚生会館・食堂_1F_休憩室",
+         "isStairs": false
+        },
+        {
+         "name": "保健室",
+         "id": "福利厚生会館・食堂_1F_保健室",
+         "isStairs": false
+        },
+        {
+         "name": "倉庫",
+         "id": "福利厚生会館・食堂_1F_倉庫",
+         "isStairs": false
+        },
+        {
+         "name": "厨房",
+         "id": "福利厚生会館・食堂_1F_厨房",
+         "isStairs": false
+        },
+        {
+         "name": "学生相談室",
+         "id": "福利厚生会館・食堂_1F_学生相談室",
+         "isStairs": false
+        },
+        {
+         "name": "学生課事務室(学生支援係・寮務係)",
+         "id": "福利厚生会館・食堂_1F_学生課事務室(学生支援係・寮務係)",
+         "isStairs": false
+        },
+        {
+         "name": "学生課事務室(教務係)",
+         "id": "福利厚生会館・食堂_1F_学生課事務室(教務係)",
+         "isStairs": false
+        },
+        {
+         "name": "寮生食堂",
+         "id": "福利厚生会館・食堂_1F_寮生食堂",
+         "isStairs": false
+        },
+        {
+         "name": "更衣室",
+         "id": "福利厚生会館・食堂_1F_更衣室",
+         "isStairs": false
+        },
+        {
+         "name": "静養室",
+         "id": "福利厚生会館・食堂_1F_静養室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "福利厚生会館・食堂_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "福利厚生会館・食堂_階段B",
+         "isStairs": true
+        },
+        {
+         "name": "階段C",
+         "id": "福利厚生会館・食堂_階段C",
+         "isStairs": true
+        },
+        {
+         "name": "階段D",
+         "id": "福利厚生会館・食堂_階段D",
+         "isStairs": true
+        },
+        {
+         "name": "階段E",
+         "id": "福利厚生会館・食堂_階段E",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "WELFARE_2F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "福利厚生会館・食堂_2F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "福利厚生会館・食堂_2F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "一般食堂",
+         "id": "福利厚生会館・食堂_2F_一般食堂",
+         "isStairs": false
+        },
+        {
+         "name": "会議室",
+         "id": "福利厚生会館・食堂_2F_会議室",
+         "isStairs": false
+        },
+        {
+         "name": "倉庫",
+         "id": "福利厚生会館・食堂_2F_倉庫",
+         "isStairs": false
+        },
+        {
+         "name": "写真部",
+         "id": "福利厚生会館・食堂_2F_写真部",
+         "isStairs": false
+        },
+        {
+         "name": "厨房",
+         "id": "福利厚生会館・食堂_2F_厨房",
+         "isStairs": false
+        },
+        {
+         "name": "和室",
+         "id": "福利厚生会館・食堂_2F_和室",
+         "isStairs": false
+        },
+        {
+         "name": "売店",
+         "id": "福利厚生会館・食堂_2F_売店",
+         "isStairs": false
+        },
+        {
+         "name": "学生相談室第二",
+         "id": "福利厚生会館・食堂_2F_学生相談室第二",
+         "isStairs": false
+        },
+        {
+         "name": "学生課会議室",
+         "id": "福利厚生会館・食堂_2F_学生課会議室",
+         "isStairs": false
+        },
+        {
+         "name": "学生談話室",
+         "id": "福利厚生会館・食堂_2F_学生談話室",
+         "isStairs": false
+        },
+        {
+         "name": "就職・進学資料コーナー",
+         "id": "福利厚生会館・食堂_2F_就職・進学資料コーナー",
+         "isStairs": false
+        },
+        {
+         "name": "階段C",
+         "id": "福利厚生会館・食堂_階段C",
+         "isStairs": true
+        },
+        {
+         "name": "階段D",
+         "id": "福利厚生会館・食堂_階段D",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "福利厚生会館(学生課)",
+     "mapBuilding": "福利厚生会館・食堂",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "WELFARE_1F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "福利厚生会館・食堂_1F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "福利厚生会館・食堂_1F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(3)",
+         "id": "福利厚生会館・食堂_1F_WC(3)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(4)",
+         "id": "福利厚生会館・食堂_1F_WC(4)",
+         "isStairs": false
+        },
+        {
+         "name": "休憩室",
+         "id": "福利厚生会館・食堂_1F_休憩室",
+         "isStairs": false
+        },
+        {
+         "name": "保健室",
+         "id": "福利厚生会館・食堂_1F_保健室",
+         "isStairs": false
+        },
+        {
+         "name": "倉庫",
+         "id": "福利厚生会館・食堂_1F_倉庫",
+         "isStairs": false
+        },
+        {
+         "name": "厨房",
+         "id": "福利厚生会館・食堂_1F_厨房",
+         "isStairs": false
+        },
+        {
+         "name": "学生相談室",
+         "id": "福利厚生会館・食堂_1F_学生相談室",
+         "isStairs": false
+        },
+        {
+         "name": "学生課事務室(学生支援係・寮務係)",
+         "id": "福利厚生会館・食堂_1F_学生課事務室(学生支援係・寮務係)",
+         "isStairs": false
+        },
+        {
+         "name": "学生課事務室(教務係)",
+         "id": "福利厚生会館・食堂_1F_学生課事務室(教務係)",
+         "isStairs": false
+        },
+        {
+         "name": "寮生食堂",
+         "id": "福利厚生会館・食堂_1F_寮生食堂",
+         "isStairs": false
+        },
+        {
+         "name": "更衣室",
+         "id": "福利厚生会館・食堂_1F_更衣室",
+         "isStairs": false
+        },
+        {
+         "name": "静養室",
+         "id": "福利厚生会館・食堂_1F_静養室",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "福利厚生会館・食堂_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "福利厚生会館・食堂_階段B",
+         "isStairs": true
+        },
+        {
+         "name": "階段C",
+         "id": "福利厚生会館・食堂_階段C",
+         "isStairs": true
+        },
+        {
+         "name": "階段D",
+         "id": "福利厚生会館・食堂_階段D",
+         "isStairs": true
+        },
+        {
+         "name": "階段E",
+         "id": "福利厚生会館・食堂_階段E",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "WELFARE_2F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "福利厚生会館・食堂_2F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "福利厚生会館・食堂_2F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "一般食堂",
+         "id": "福利厚生会館・食堂_2F_一般食堂",
+         "isStairs": false
+        },
+        {
+         "name": "会議室",
+         "id": "福利厚生会館・食堂_2F_会議室",
+         "isStairs": false
+        },
+        {
+         "name": "倉庫",
+         "id": "福利厚生会館・食堂_2F_倉庫",
+         "isStairs": false
+        },
+        {
+         "name": "写真部",
+         "id": "福利厚生会館・食堂_2F_写真部",
+         "isStairs": false
+        },
+        {
+         "name": "厨房",
+         "id": "福利厚生会館・食堂_2F_厨房",
+         "isStairs": false
+        },
+        {
+         "name": "和室",
+         "id": "福利厚生会館・食堂_2F_和室",
+         "isStairs": false
+        },
+        {
+         "name": "売店",
+         "id": "福利厚生会館・食堂_2F_売店",
+         "isStairs": false
+        },
+        {
+         "name": "学生相談室第二",
+         "id": "福利厚生会館・食堂_2F_学生相談室第二",
+         "isStairs": false
+        },
+        {
+         "name": "学生課会議室",
+         "id": "福利厚生会館・食堂_2F_学生課会議室",
+         "isStairs": false
+        },
+        {
+         "name": "学生談話室",
+         "id": "福利厚生会館・食堂_2F_学生談話室",
+         "isStairs": false
+        },
+        {
+         "name": "就職・進学資料コーナー",
+         "id": "福利厚生会館・食堂_2F_就職・進学資料コーナー",
+         "isStairs": false
+        },
+        {
+         "name": "階段C",
+         "id": "福利厚生会館・食堂_階段C",
+         "isStairs": true
+        },
+        {
+         "name": "階段D",
+         "id": "福利厚生会館・食堂_階段D",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "合宿研修所",
+     "mapBuilding": "合宿研修施設",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "TRAINING_1F",
+       "rooms": [
+        {
+         "name": "WC(1)",
+         "id": "合宿研修施設_1F_WC(1)",
+         "isStairs": false
+        },
+        {
+         "name": "WC(2)",
+         "id": "合宿研修施設_1F_WC(2)",
+         "isStairs": false
+        },
+        {
+         "name": "オーディオルーム",
+         "id": "合宿研修施設_1F_オーディオルーム",
+         "isStairs": false
+        },
+        {
+         "name": "学生会室",
+         "id": "合宿研修施設_1F_学生会室",
+         "isStairs": false
+        },
+        {
+         "name": "押入(1)",
+         "id": "合宿研修施設_1F_押入(1)",
+         "isStairs": false
+        },
+        {
+         "name": "押入(2)",
+         "id": "合宿研修施設_1F_押入(2)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面台",
+         "id": "合宿研修施設_1F_洗面台",
+         "isStairs": false
+        },
+        {
+         "name": "流しガス台",
+         "id": "合宿研修施設_1F_流しガス台",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "合宿研修施設_階段A",
+         "isStairs": true
+        },
+        {
+         "name": "階段B",
+         "id": "合宿研修施設_階段B",
+         "isStairs": true
+        }
+       ]
+      },
+      {
+       "floor": "2F",
+       "label": "TRAINING_2F",
+       "rooms": [
+        {
+         "name": "押入(1)",
+         "id": "合宿研修施設_2F_押入(1)",
+         "isStairs": false
+        },
+        {
+         "name": "押入(2)",
+         "id": "合宿研修施設_2F_押入(2)",
+         "isStairs": false
+        },
+        {
+         "name": "押入(3)",
+         "id": "合宿研修施設_2F_押入(3)",
+         "isStairs": false
+        },
+        {
+         "name": "押入(4)",
+         "id": "合宿研修施設_2F_押入(4)",
+         "isStairs": false
+        },
+        {
+         "name": "洗面台",
+         "id": "合宿研修施設_2F_洗面台",
+         "isStairs": false
+        },
+        {
+         "name": "研修室(1)",
+         "id": "合宿研修施設_2F_研修室(1)",
+         "isStairs": false
+        },
+        {
+         "name": "研修室(2)",
+         "id": "合宿研修施設_2F_研修室(2)",
+         "isStairs": false
+        },
+        {
+         "name": "階段A",
+         "id": "合宿研修施設_階段A",
+         "isStairs": true
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "体育施設",
+   "buildings": [
+    {
+     "name": "第1体育館",
+     "mapBuilding": "第1体育館",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "GYM1_1F",
+       "rooms": [
+        {
+         "name": "倉庫(1)",
+         "id": "第1体育館_1F_倉庫(1)",
+         "isStairs": false
+        },
+        {
+         "name": "倉庫(2)",
+         "id": "第1体育館_1F_倉庫(2)",
+         "isStairs": false
+        },
+        {
+         "name": "器具庫(1)",
+         "id": "第1体育館_1F_器具庫(1)",
+         "isStairs": false
+        },
+        {
+         "name": "器具庫(2)",
+         "id": "第1体育館_1F_器具庫(2)",
+         "isStairs": false
+        },
+        {
+         "name": "器具庫(3)",
+         "id": "第1体育館_1F_器具庫(3)",
+         "isStairs": false
+        },
+        {
+         "name": "女子シャワー室",
+         "id": "第1体育館_1F_女子シャワー室",
+         "isStairs": false
+        },
+        {
+         "name": "女子更衣室",
+         "id": "第1体育館_1F_女子更衣室",
+         "isStairs": false
+        },
+        {
+         "name": "小会議室",
+         "id": "第1体育館_1F_小会議室",
+         "isStairs": false
+        },
+        {
+         "name": "教員室体育",
+         "id": "第1体育館_1F_教員室体育",
+         "isStairs": false
+        },
+        {
+         "name": "男子シャワー室",
+         "id": "第1体育館_1F_男子シャワー室",
+         "isStairs": false
+        },
+        {
+         "name": "男子更衣室",
+         "id": "第1体育館_1F_男子更衣室",
+         "isStairs": false
+        },
+        {
+         "name": "第1体育館",
+         "id": "第1体育館_1F_第1体育館",
+         "isStairs": false
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "第2体育館",
+     "mapBuilding": "第2体育館",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "GYM2_1F",
+       "rooms": [
+        {
+         "name": "用具庫",
+         "id": "第2体育館_1F_用具庫",
+         "isStairs": false
+        },
+        {
+         "name": "第2体育館",
+         "id": "第2体育館_1F_第2体育館",
+         "isStairs": false
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "武道場",
+     "mapBuilding": "武道場・卓球場",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "BUDO_1F",
+       "rooms": [
+        {
+         "name": "卓球場ウエイトトレーニング場",
+         "id": "武道場・卓球場_1F_卓球場ウエイトトレーニング場",
+         "isStairs": false
+        },
+        {
+         "name": "武道場(柔道)(剣道)",
+         "id": "武道場・卓球場_1F_武道場(柔道)(剣道)",
+         "isStairs": false
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "卓球場",
+     "mapBuilding": "武道場・卓球場",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "BUDO_1F",
+       "rooms": [
+        {
+         "name": "卓球場ウエイトトレーニング場",
+         "id": "武道場・卓球場_1F_卓球場ウエイトトレーニング場",
+         "isStairs": false
+        },
+        {
+         "name": "武道場(柔道)(剣道)",
+         "id": "武道場・卓球場_1F_武道場(柔道)(剣道)",
+         "isStairs": false
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "弓道場",
+     "mapBuilding": "弓道場",
+     "floors": [
+      {
+       "floor": "1F",
+       "label": "KYUDO_1F",
+       "rooms": [
+        {
+         "name": "弓道場",
+         "id": "弓道場_1F_弓道場",
+         "isStairs": false
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "的場"
+    },
+    {
+     "name": "プール"
+    },
+    {
+     "name": "陸上競技場"
+    },
+    {
+     "name": "野球場"
+    },
+    {
+     "name": "テニスコート"
+    },
+    {
+     "name": "ハンドボールコート"
+    }
+   ]
+  },
+  {
+   "name": "その他",
+   "buildings": [
+    {
+     "name": "正門"
+    },
+    {
+     "name": "守衛室"
+    },
+    {
+     "name": "第1駐車場"
+    },
+    {
+     "name": "第2駐車場"
+    },
+    {
+     "name": "駐輪場"
+    },
+    {
+     "name": "車庫"
+    },
+    {
+     "name": "屋外便所"
+    },
+    {
+     "name": "ボイラー室"
+    },
+    {
+     "name": "電気室"
+    },
+    {
+     "name": "廃水処理施設"
+    },
+    {
+     "name": "倉庫"
+    },
+    {
+     "name": "器具庫"
+    },
+    {
+     "name": "噴水"
+    },
+    {
+     "name": "雙清池"
+    }
+   ]
+  }
+ ],
+ "unassigned": {
+  "name": "本棟（棟の特定できない部屋）",
+  "floors": [
+   {
+    "floor": "1F",
+    "label": "NITTC_1F",
+    "rooms": [
+     {
+      "name": "111講義室",
+      "id": "111講義室"
+     },
+     {
+      "name": "112講義室",
+      "id": "112講義室"
+     },
+     {
+      "name": "113講義室",
+      "id": "113講義室"
+     },
+     {
+      "name": "114講義室",
+      "id": "114講義室"
+     },
+     {
+      "name": "211講義室",
+      "id": "211講義室"
+     },
+     {
+      "name": "311講義室",
+      "id": "311講義室"
+     },
+     {
+      "name": "312講義室",
+      "id": "312講義室"
+     },
+     {
+      "name": "411講義室",
+      "id": "411講義室"
+     },
+     {
+      "name": "412講義室",
+      "id": "412講義室"
+     },
+     {
+      "name": "コモンルーム(4)",
+      "id": "コモンルーム(4)"
+     },
+     {
+      "name": "サーバー室",
+      "id": "サーバー室"
+     },
+     {
+      "name": "一般学科棟階段",
+      "id": "一般学科棟階段"
+     },
+     {
+      "name": "中央階段",
+      "id": "中央階段"
+     },
+     {
+      "name": "倉庫",
+      "id": "倉庫"
+     },
+     {
+      "name": "化学実験室(1)",
+      "id": "化学実験室(1)"
+     },
+     {
+      "name": "化学実験室(2)",
+      "id": "化学実験室(2)"
+     },
+     {
+      "name": "北階段",
+      "id": "北階段"
+     },
+     {
+      "name": "卒研室1",
+      "id": "卒研室1"
+     },
+     {
+      "name": "卒研室2",
+      "id": "卒研室2"
+     },
+     {
+      "name": "同窓会教育後援会",
+      "id": "同窓会教育後援会"
+     },
+     {
+      "name": "固体エレクトロニクス研究室(A)",
+      "id": "固体エレクトロニクス研究室(A)"
+     },
+     {
+      "name": "固体エレクトロニクス研究室(B)",
+      "id": "固体エレクトロニクス研究室(B)"
+     },
+     {
+      "name": "固体エレクトロニクス研究室(C)",
+      "id": "固体エレクトロニクス研究室(C)"
+     },
+     {
+      "name": "土質実験室",
+      "id": "土質実験室"
+     },
+     {
+      "name": "多目的実験室",
+      "id": "多目的実験室"
+     },
+     {
+      "name": "女子トイレ",
+      "id": "女子トイレ"
+     },
+     {
+      "name": "女子更衣室",
+      "id": "女子更衣室"
+     },
+     {
+      "name": "実験準備室",
+      "id": "実験準備室"
+     },
+     {
+      "name": "実験管理室",
+      "id": "実験管理室"
+     },
+     {
+      "name": "応用物理",
+      "id": "応用物理"
+     },
+     {
+      "name": "恒温室",
+      "id": "恒温室"
+     },
+     {
+      "name": "情報システム実験室",
+      "id": "情報システム実験室"
+     },
+     {
+      "name": "情報教室(1)",
+      "id": "情報教室(1)"
+     },
+     {
+      "name": "更衣室",
+      "id": "更衣室"
+     },
+     {
+      "name": "書庫1",
+      "id": "書庫1"
+     },
+     {
+      "name": "材料力学実験室",
+      "id": "材料力学実験室"
+     },
+     {
+      "name": "材料実験室",
+      "id": "材料実験室"
+     },
+     {
+      "name": "材料強度学実験室",
+      "id": "材料強度学実験室"
+     },
+     {
+      "name": "材料構造実験室",
+      "id": "材料構造実験室"
+     },
+     {
+      "name": "森上_教員室",
+      "id": "森上_教員室"
+     },
+     {
+      "name": "榎本_教員室",
+      "id": "榎本_教員室"
+     },
+     {
+      "name": "構造実験室",
+      "id": "構造実験室"
+     },
+     {
+      "name": "機械加工実験室",
+      "id": "機械加工実験室"
+     },
+     {
+      "name": "機械工作実験室",
+      "id": "機械工作実験室"
+     },
+     {
+      "name": "水理実験室",
+      "id": "水理実験室"
+     },
+     {
+      "name": "液体工学実験室",
+      "id": "液体工学実験室"
+     },
+     {
+      "name": "測定室",
+      "id": "測定室"
+     },
+     {
+      "name": "測量準備室",
+      "id": "測量準備室"
+     },
+     {
+      "name": "準備室",
+      "id": "準備室"
+     },
+     {
+      "name": "熱工学実験室",
+      "id": "熱工学実験室"
+     },
+     {
+      "name": "環境実験室",
+      "id": "環境実験室"
+     },
+     {
+      "name": "男子トイレ",
+      "id": "男子トイレ"
+     },
+     {
+      "name": "白田_教員室",
+      "id": "白田_教員室"
+     },
+     {
+      "name": "総務課(総務・企画事務室)",
+      "id": "総務課(総務・企画事務室)"
+     },
+     {
+      "name": "総務課(財務事務室)",
+      "id": "総務課(財務事務室)"
+     },
+     {
+      "name": "計測制御研究室",
+      "id": "計測制御研究室"
+     },
+     {
+      "name": "鈴木健_教員室",
+      "id": "鈴木健_教員室"
+     },
+     {
+      "name": "電気室",
+      "id": "電気室"
+     },
+     {
+      "name": "電気機械実験室",
+      "id": "電気機械実験室"
+     },
+     {
+      "name": "電気電子システム工学科棟階段",
+      "id": "電気電子システム工学科棟階段"
+     },
+     {
+      "name": "電気電子材料研究室",
+      "id": "電気電子材料研究室"
+     },
+     {
+      "name": "電顕室",
+      "id": "電顕室"
+     },
+     {
+      "name": "非常勤講師室",
+      "id": "非常勤講師室"
+     }
+    ]
+   },
+   {
+    "floor": "2F",
+    "label": "NITTC_2F",
+    "rooms": [
+     {
+      "name": "121講義室",
+      "id": "121講義室"
+     },
+     {
+      "name": "122講義室",
+      "id": "122講義室"
+     },
+     {
+      "name": "123講義室",
+      "id": "123講義室"
+     },
+     {
+      "name": "124講義室",
+      "id": "124講義室"
+     },
+     {
+      "name": "125講義室",
+      "id": "125講義室"
+     },
+     {
+      "name": "221講義室",
+      "id": "221講義室"
+     },
+     {
+      "name": "321講義室",
+      "id": "321講義室"
+     },
+     {
+      "name": "322講義室",
+      "id": "322講義室"
+     },
+     {
+      "name": "CAD室",
+      "id": "CAD室"
+     },
+     {
+      "name": "コモンスペース",
+      "id": "コモンスペース"
+     },
+     {
+      "name": "コモンスペースA",
+      "id": "コモンスペースA"
+     },
+     {
+      "name": "コモンスペースB",
+      "id": "コモンスペースB"
+     },
+     {
+      "name": "コモンルーム(5)",
+      "id": "コモンルーム(5)"
+     },
+     {
+      "name": "コラボレーションスペース4",
+      "id": "コラボレーションスペース4"
+     },
+     {
+      "name": "コラボレーションスペース5",
+      "id": "コラボレーションスペース5"
+     },
+     {
+      "name": "サーバー室",
+      "id": "サーバー室"
+     },
+     {
+      "name": "ゼミナール室",
+      "id": "ゼミナール室"
+     },
+     {
+      "name": "ゼミナール室(1)",
+      "id": "ゼミナール室(1)"
+     },
+     {
+      "name": "ネットワーク室",
+      "id": "ネットワーク室"
+     },
+     {
+      "name": "ハイパーメディア研究室",
+      "id": "ハイパーメディア研究室"
+     },
+     {
+      "name": "ファブラボ",
+      "id": "ファブラボ"
+     },
+     {
+      "name": "ミーティングサーバ室(寺田)",
+      "id": "ミーティングサーバ室(寺田)"
+     },
+     {
+      "name": "ラーニングコモンズ",
+      "id": "ラーニングコモンズ"
+     },
+     {
+      "name": "一般学科棟女子トイレ",
+      "id": "一般学科棟女子トイレ"
+     },
+     {
+      "name": "一般学科棟男子トイレ",
+      "id": "一般学科棟男子トイレ"
+     },
+     {
+      "name": "一般学科棟階段",
+      "id": "一般学科棟階段"
+     },
+     {
+      "name": "三浦_教員室",
+      "id": "三浦_教員室"
+     },
+     {
+      "name": "中央階段",
+      "id": "中央階段"
+     },
+     {
+      "name": "中村_教員室",
+      "id": "中村_教員室"
+     },
+     {
+      "name": "事務部長室",
+      "id": "事務部長室"
+     },
+     {
+      "name": "今_教員室",
+      "id": "今_教員室"
+     },
+     {
+      "name": "会議室",
+      "id": "会議室"
+     },
+     {
+      "name": "信号処理研究室",
+      "id": "信号処理研究室"
+     },
+     {
+      "name": "倉庫",
+      "id": "倉庫"
+     },
+     {
+      "name": "倉庫2",
+      "id": "倉庫2"
+     },
+     {
+      "name": "光学実験室",
+      "id": "光学実験室"
+     },
+     {
+      "name": "兼重_教員室",
+      "id": "兼重_教員室"
+     },
+     {
+      "name": "前室",
+      "id": "前室"
+     },
+     {
+      "name": "北野_教員室",
+      "id": "北野_教員室"
+     },
+     {
+      "name": "北階段",
+      "id": "北階段"
+     },
+     {
+      "name": "卒研室1",
+      "id": "卒研室1"
+     },
+     {
+      "name": "卒研室2",
+      "id": "卒研室2"
+     },
+     {
+      "name": "卒研室3",
+      "id": "卒研室3"
+     },
+     {
+      "name": "卒研室4",
+      "id": "卒研室4"
+     },
+     {
+      "name": "卒研室5",
+      "id": "卒研室5"
+     },
+     {
+      "name": "印刷室",
+      "id": "印刷室"
+     },
+     {
+      "name": "大畑_教員室",
+      "id": "大畑_教員室"
+     },
+     {
+      "name": "女子ロッカー室",
+      "id": "女子ロッカー室"
+     },
+     {
+      "name": "学生研究室1",
+      "id": "学生研究室1"
+     },
+     {
+      "name": "学生研究室2",
+      "id": "学生研究室2"
+     },
+     {
+      "name": "学生研究室3",
+      "id": "学生研究室3"
+     },
+     {
+      "name": "学生研究室4",
+      "id": "学生研究室4"
+     },
+     {
+      "name": "小谷_教員室",
+      "id": "小谷_教員室"
+     },
+     {
+      "name": "川島_教員室",
+      "id": "川島_教員室"
+     },
+     {
+      "name": "情報教室(2)共同教員室米沢・勝谷",
+      "id": "情報教室(2)共同教員室米沢・勝谷"
+     },
+     {
+      "name": "情報教室3",
+      "id": "情報教室3"
+     },
+     {
+      "name": "木藤_教員室",
+      "id": "木藤_教員室"
+     },
+     {
+      "name": "松本_教員室",
+      "id": "松本_教員室"
+     },
+     {
+      "name": "校長室",
+      "id": "校長室"
+     },
+     {
+      "name": "江端_教員室",
+      "id": "江端_教員室"
+     },
+     {
+      "name": "浅井_教員室",
+      "id": "浅井_教員室"
+     },
+     {
+      "name": "湯沸室",
+      "id": "湯沸室"
+     },
+     {
+      "name": "湯沸室2",
+      "id": "湯沸室2"
+     },
+     {
+      "name": "準備室資料室",
+      "id": "準備室資料室"
+     },
+     {
+      "name": "熊谷_教員室",
+      "id": "熊谷_教員室"
+     },
+     {
+      "name": "物理実験室",
+      "id": "物理実験室"
+     },
+     {
+      "name": "物理準備室(山田真)",
+      "id": "物理準備室(山田真)"
+     },
+     {
+      "name": "環境実験室",
+      "id": "環境実験室"
+     },
+     {
+      "name": "田中貴_教員室",
+      "id": "田中貴_教員室"
+     },
+     {
+      "name": "男子ロッカースペース",
+      "id": "男子ロッカースペース"
+     },
+     {
+      "name": "神永_教員室",
+      "id": "神永_教員室"
+     },
+     {
+      "name": "笠谷_教員室",
+      "id": "笠谷_教員室"
+     },
+     {
+      "name": "第1会議室",
+      "id": "第1会議室"
+     },
+     {
+      "name": "箭内_教員室",
+      "id": "箭内_教員室"
+     },
+     {
+      "name": "篠原_教員室",
+      "id": "篠原_教員室"
+     },
+     {
+      "name": "精密実験室",
+      "id": "精密実験室"
+     },
+     {
+      "name": "精密測定室",
+      "id": "精密測定室"
+     },
+     {
+      "name": "給湯室",
+      "id": "給湯室"
+     },
+     {
+      "name": "複合教員室佐郷・土井",
+      "id": "複合教員室佐郷・土井"
+     },
+     {
+      "name": "資料室",
+      "id": "資料室"
+     },
+     {
+      "name": "起業家工房2",
+      "id": "起業家工房2"
+     },
+     {
+      "name": "造形デザイン室",
+      "id": "造形デザイン室"
+     },
+     {
+      "name": "都築_教員室",
+      "id": "都築_教員室"
+     },
+     {
+      "name": "電子制御実験室",
+      "id": "電子制御実験室"
+     },
+     {
+      "name": "電子制御実験準備室",
+      "id": "電子制御実験準備室"
+     },
+     {
+      "name": "電気電子システム工学科階段",
+      "id": "電気電子システム工学科階段"
+     },
+     {
+      "name": "電気電子工学実験室",
+      "id": "電気電子工学実験室"
+     },
+     {
+      "name": "電気電子工学実験準備室",
+      "id": "電気電子工学実験準備室"
+     },
+     {
+      "name": "鬼頭_教員室",
+      "id": "鬼頭_教員室"
+     }
+    ]
+   },
+   {
+    "floor": "3F",
+    "label": "NITTC_3F",
+    "rooms": [
+     {
+      "name": "135講義室",
+      "id": "135講義室"
+     },
+     {
+      "name": "コモンルーム2",
+      "id": "コモンルーム2"
+     },
+     {
+      "name": "コモンルーム3",
+      "id": "コモンルーム3"
+     },
+     {
+      "name": "コラボレーションスペース1",
+      "id": "コラボレーションスペース1"
+     },
+     {
+      "name": "コラボレーションスペース2",
+      "id": "コラボレーションスペース2"
+     },
+     {
+      "name": "コラボレーションスペース3",
+      "id": "コラボレーションスペース3"
+     },
+     {
+      "name": "コラボレーションスペース8",
+      "id": "コラボレーションスペース8"
+     },
+     {
+      "name": "ゼミナール室(3)共同会議室1",
+      "id": "ゼミナール室(3)共同会議室1"
+     },
+     {
+      "name": "ゼミナール室(4)共同会議室2",
+      "id": "ゼミナール室(4)共同会議室2"
+     },
+     {
+      "name": "プレゼンテーションルーム",
+      "id": "プレゼンテーションルーム"
+     },
+     {
+      "name": "ロボティクス研究室",
+      "id": "ロボティクス研究室"
+     },
+     {
+      "name": "ワーキングルーム",
+      "id": "ワーキングルーム"
+     },
+     {
+      "name": "一般学科棟女子トイレ",
+      "id": "一般学科棟女子トイレ"
+     },
+     {
+      "name": "一般学科棟男子トイレ",
+      "id": "一般学科棟男子トイレ"
+     },
+     {
+      "name": "一般学科棟階段",
+      "id": "一般学科棟階段"
+     },
+     {
+      "name": "中央階段",
+      "id": "中央階段"
+     },
+     {
+      "name": "事務室",
+      "id": "事務室"
+     },
+     {
+      "name": "作品室",
+      "id": "作品室"
+     },
+     {
+      "name": "光本_教員室",
+      "id": "光本_教員室"
+     },
+     {
+      "name": "共同利用室",
+      "id": "共同利用室"
+     },
+     {
+      "name": "共同研究室",
+      "id": "共同研究室"
+     },
+     {
+      "name": "前田_教員室",
+      "id": "前田_教員室"
+     },
+     {
+      "name": "卒研室8",
+      "id": "卒研室8"
+     },
+     {
+      "name": "卒研室_6",
+      "id": "卒研室_6"
+     },
+     {
+      "name": "卒研室_7",
+      "id": "卒研室_7"
+     },
+     {
+      "name": "及川_教員室",
+      "id": "及川_教員室"
+     },
+     {
+      "name": "吉岡_教員室",
+      "id": "吉岡_教員室"
+     },
+     {
+      "name": "国際交流センター",
+      "id": "国際交流センター"
+     },
+     {
+      "name": "塚本_教員室",
+      "id": "塚本_教員室"
+     },
+     {
+      "name": "大野_教員室",
+      "id": "大野_教員室"
+     },
+     {
+      "name": "市川_教員室",
+      "id": "市川_教員室"
+     },
+     {
+      "name": "情報教室(4)",
+      "id": "情報教室(4)"
+     },
+     {
+      "name": "杉浦_教員室",
+      "id": "杉浦_教員室"
+     },
+     {
+      "name": "松原_教員室",
+      "id": "松原_教員室"
+     },
+     {
+      "name": "湯沸室",
+      "id": "湯沸室"
+     },
+     {
+      "name": "熊谷_教員室",
+      "id": "熊谷_教員室"
+     },
+     {
+      "name": "竹下_研究室",
+      "id": "竹下_研究室"
+     },
+     {
+      "name": "縄田_教員室",
+      "id": "縄田_教員室"
+     },
+     {
+      "name": "製図室",
+      "id": "製図室"
+     },
+     {
+      "name": "資料室ゼミナール室",
+      "id": "資料室ゼミナール室"
+     },
+     {
+      "name": "電気電子システム工学科棟階段",
+      "id": "電気電子システム工学科棟階段"
+     },
+     {
+      "name": "高山_教員室",
+      "id": "高山_教員室"
+     }
+    ]
+   }
+  ]
+ }
+}

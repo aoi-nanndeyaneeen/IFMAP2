@@ -461,7 +461,9 @@ class MapPainter extends CustomPainter {
       }
 
       final cat = room.category;
-      final text = displayPlaceName(room.name);
+      final text = mapLabelName(room.name,
+          building: scene.floor.section.buildingName,
+          floor: scene.floor.section.floorDisplayName);
 
       if (isFocus) {
         // 強調中の部屋名はピンの下に太字で必ず出す。

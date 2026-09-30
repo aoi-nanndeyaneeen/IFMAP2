@@ -83,10 +83,29 @@ class StepTracker {
     double Function()? clock,
     this.turnCheckpoints = false,
     this.cornerBoost = 1.0,
+    this.autoAdvance = false,
+    this.calibrateStride = false,
   }) : _now = clock ?? _stopwatchClock();
 
   final bool turnCheckpoints;
   final double cornerBoost;
+
+  /// チェックポイントで歩数を止めず、通り過ぎたら自動で次へ進める。
+  /// タップは「位置がずれていたら直す」ための任意の操作になる。
+  /// 止めていた頃は、タップし忘れると地図が動かなくなっていた。
+  final bool autoAdvance;
+
+  /// 位置が確かめられるたびに（タップ・QR）、実際に進んだ距離と
+  /// 歩数から見積もった距離を比べて歩幅を合わせていく。
+  final bool calibrateStride;
+
+  /// 歩幅の倍率。人によって歩くペースが違うので、確かめるたびに学ぶ。
+  double _strideScale = 1.0;
+  double get strideScale => _strideScale;
+
+  /// 最後に位置を確かめた地点と、そこから歩数で進めた量（補正前）。
+  double _fixPx = 0;
+  double _stepPxSinceFix = 0;
 
   static double Function() _stopwatchClock() {
     final sw = Stopwatch()..start();
@@ -165,6 +184,8 @@ class StepTracker {
     _nodes = nodes;
     _traveled = 0;
     _gateIdx = 0;
+    _fixPx = 0;
+    _stepPxSinceFix = 0;
     _buildCumDist();
     _corners = extractCorners(_pathPoints(), _cumDist);
     _buildGates();
@@ -194,11 +215,15 @@ class StepTracker {
 
   /// チェックポイントの通過をユーザーが確認した。
   /// そこまで進んだものとして現在地を確定させる。
+  ///
+  /// [autoAdvance] のときは、自動で通過済みにしたものも確認できる
+  /// （歩数を数えすぎて先へ進んでいた場合に、手前へ戻して合わせる）。
   void confirmGate(String gateKey) {
     final idx = _gates.indexWhere((g) => g.info.key == gateKey);
-    if (idx == -1 || idx < _gateIdx) return;
+    if (idx == -1 || (idx < _gateIdx && !autoAdvance)) return;
     _traveled = _gates[idx].px;
     _gateIdx = idx + 1;
+    _onFix();
     _logProgress();
     _gateCtrl.add(nextGate);
     _posCtrl.add(_calcPosition());
@@ -241,7 +266,14 @@ class StepTracker {
       passed.add(_gates[_gateIdx].info.key);
       _gateIdx++;
     }
+    if (autoAdvance && _gateIdx > 0 && _gates[_gateIdx - 1].px > target) {
+      // 数えすぎて先のチェックポイントまで通過済みにしていたら戻す。
+      while (_gateIdx > 0 && _gates[_gateIdx - 1].px > target) {
+        _gateIdx--;
+      }
+    }
     _traveled = target;
+    _onFix();
     _logProgress();
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
@@ -318,8 +350,10 @@ class StepTracker {
   void advanceSteps(int steps) {
     if (!hasRoute || steps <= 0) return;
     _lastStepT = _now();
-    _traveled =
-        (_traveled + stepLengthPx * steps * _boostAt(_traveled)).clamp(0.0, _capPx);
+    final step = stepLengthPx * steps * _boostAt(_traveled) * _strideScale;
+    _stepPxSinceFix += step;
+    _traveled = (_traveled + step).clamp(0.0, _capPx);
+    _autoPassGates();
     _logProgress();
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
@@ -345,11 +379,48 @@ class StepTracker {
       AppConfig.cornerZoneMeters / AppConfig.metersPerPx;
 
   /// 次のチェックポイントより先へは進ませない。そこで位置を確定させるため。
-  double get _capPx =>
-      _gateIdx < _gates.length ? _gates[_gateIdx].px : totalRoutePx;
+  /// [autoAdvance] のときは止めない（終点までは進む）。
+  double get _capPx => autoAdvance
+      ? totalRoutePx
+      : (_gateIdx < _gates.length ? _gates[_gateIdx].px : totalRoutePx);
 
   /// 確認済みのチェックポイントより手前へは戻さない。
-  double get _floorPx => _gateIdx > 0 ? _gates[_gateIdx - 1].px : 0;
+  /// [autoAdvance] のときは、最後に位置を確かめた地点より手前へ戻さない。
+  double get _floorPx => autoAdvance
+      ? _fixPx
+      : (_gateIdx > 0 ? _gates[_gateIdx - 1].px : 0);
+
+  /// 通り過ぎたチェックポイントを通過済みにする（[autoAdvance] のとき）。
+  void _autoPassGates() {
+    if (!autoAdvance) return;
+    var changed = false;
+    while (_gateIdx < _gates.length && _gates[_gateIdx].px <= _traveled) {
+      _gateIdx++;
+      changed = true;
+    }
+    if (changed) _gateCtrl.add(nextGate);
+  }
+
+  /// 通過済みのチェックポイント（自動で通過したものも含む）。
+  List<String> get passedGateKeys =>
+      [for (var i = 0; i < _gateIdx; i++) _gates[i].info.key];
+
+  /// 位置を確かめた（タップ・QR）。歩幅を学び、誤差の起点をここに置く。
+  void _onFix() {
+    if (calibrateStride) {
+      final actual = _traveled - _fixPx;
+      // 短すぎる区間や、戻ったときは学ばない（誤差のほうが大きい）。
+      if (_stepPxSinceFix >= _calibrateMinPx && actual > 0) {
+        final ratio = (actual / _stepPxSinceFix).clamp(0.6, 1.6);
+        // 1回で決めずに半分だけ寄せる（たまたまの外れ値に引っぱられない）。
+        _strideScale = (_strideScale * (1 + (ratio - 1) * 0.5)).clamp(0.7, 1.4);
+      }
+    }
+    _fixPx = _traveled;
+    _stepPxSinceFix = 0;
+  }
+
+  static const double _calibrateMinPx = 8.0 / AppConfig.metersPerPx;
 
   // ─── 曲がり角による補正 ─────────────────────────────────────────
 
@@ -397,6 +468,7 @@ class StepTracker {
     final offset = best.distance - at;
     final before = _traveled;
     _traveled = (_traveled + offset).clamp(_floorPx, _capPx);
+    _autoPassGates();
     final applied = _traveled - before;
     _lastCorrection = '${event.delta.toStringAsFixed(0)}° 曲がりを '
         '${best.turn.toStringAsFixed(0)}° の角に一致、'

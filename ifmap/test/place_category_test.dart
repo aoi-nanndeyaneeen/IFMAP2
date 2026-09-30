@@ -40,6 +40,14 @@ void main() {
     test('画面では区切りをスペースにする', () {
       expect(displayPlaceName('伊藤_研究室'), '伊藤 研究室');
     });
+
+    test('地図の上では、見ている建物と階の部分を省く', () {
+      String label(String n) => mapLabelName(n, building: '大志寮', floor: '2F');
+      expect(label('大志寮_2F_食室'), '食室');
+      expect(label('大志寮_階段A'), '階段A');
+      expect(label('大志寮_3F_食室'), '3F 食室'); // 別の階の名前はそのまま
+      expect(label('伊藤_研究室'), '伊藤 研究室');
+    });
   });
 
   group('表記', () {

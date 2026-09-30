@@ -583,8 +583,10 @@ class _MapScreenState extends State<MapScreen> {
     final checkpoints = <MapCheckpoint>[];
     if (route != null && leg == RouteLeg.active) {
       final next = c.nextGate?.key;
-      for (final s in c.guideSteps) {
-        if (!s.isCheckpoint || c.passedGates.contains(s.gateKey)) continue;
+      // 目印は案内の手順にないもの（30mごとの「現在地を確認」）も出す。
+      for (final g in c.checkpoints) {
+        if (c.passedGates.contains(g.key)) continue;
+        final s = RouteGuide.gateStep(g);
         checkpoints.add(MapCheckpoint(
           route.pointAt(s.at),
           maneuverIcon(s.maneuver),
@@ -762,13 +764,14 @@ class _MapScreenState extends State<MapScreen> {
     final step = steps[i];
     final next = i + 1 < steps.length ? steps[i + 1] : null;
     final meters = math.max(0.0, (step.at - c.traveledPx.value) * AppConfig.metersPerPx);
+    final fix = c.suggestFix ? c.nearbyCheckpoint : null;
 
     String? advanceLabel;
     VoidCallback? onAdvance;
     if (step.isFinal && step.maneuver != Maneuver.arrive && c.canAdvanceFloor) {
       advanceLabel = '${AppConfig.floorNameOf(c.nextFloorLabel!)}に着いた';
       onAdvance = () => c.advanceToFloor(c.nextFloorLabel!);
-    } else if (step.maneuver == Maneuver.arrive && meters < 15 && c.nextGate == null) {
+    } else if (step.maneuver == Maneuver.arrive && meters < 15) {
       advanceLabel = '到着した';
       onAdvance = c.markArrived;
     }
@@ -777,12 +780,15 @@ class _MapScreenState extends State<MapScreen> {
       step: step,
       distanceM: meters,
       next: next,
-      onConfirmCheckpoint: step.isCheckpoint
-          ? () {
+      // タップは任意。ずれが溜まっていそうなとき（最後に位置を合わせてから
+      // しばらく歩いた）に、近くの目印でだけ出す。
+      fixStep: fix == null ? null : RouteGuide.gateStep(fix),
+      onConfirmCheckpoint: fix == null
+          ? null
+          : () {
               HapticFeedback.mediumImpact();
-              c.confirmGate(step.gateKey!);
-            }
-          : null,
+              c.confirmGate(fix.key);
+            },
       advanceLabel: advanceLabel,
       onAdvance: onAdvance,
       warning: _wrongWay ? '進む方向と反対を向いています' : null,

@@ -98,7 +98,10 @@ class RouteGuide {
       steps.add(GuideStep(maneuver: m, at: c.distance, title: _turnTitle(m)));
     }
     for (final g in gates) {
-      steps.add(_gateStep(g));
+      // 「現在地を確認」は案内ではなく、位置を合わせる目印でしかない。
+      // 案内の手順に混ぜると、次に曲がる場所が見えなくなる。
+      if (g.isCheck) continue;
+      steps.add(gateStep(g));
     }
     // 同じ距離ならチェックポイントを先に（先に確認してもらう）。
     steps.sort((a, b) {
@@ -150,7 +153,8 @@ class RouteGuide {
         _ => '',
       };
 
-  static GuideStep _gateStep(GateInfo g) {
+  /// チェックポイント1つぶんの手順（地図の印やタップのボタンにも使う）。
+  static GuideStep gateStep(GateInfo g) {
     final at = g.px ?? 0;
     final Maneuver m;
     final String title;

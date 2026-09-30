@@ -28,3 +28,8 @@ flutter:
     # config.dart の mapSections にエントリを足せば、ここは触らなくてよい。
     - assets/NITTC/
     - assets/home/
+    - assets/dorm/
+    - assets/welfare/
+    - assets/gym/
+    # 区域/建物/階/部屋 の索引（tool/pdf_maps/build_index.py が書く）
+    - assets/campus_index.json

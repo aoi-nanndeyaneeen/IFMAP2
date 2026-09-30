@@ -504,9 +504,9 @@ class RoutePreviewSheet extends StatelessWidget {
                   icon: Icons.stairs,
                   text: labels.map(AppConfig.floorNameOf).join(' → '),
                 ),
-              _InfoChip(
-                icon: Icons.fact_check_outlined,
-                text: '位置合わせ ${c.checkpoints.length} 回',
+              const _InfoChip(
+                icon: Icons.directions_walk,
+                text: '歩くと自動で進みます',
               ),
               _InfoChip(
                 icon: Icons.turn_right,
@@ -605,7 +605,7 @@ class StepsList extends StatelessWidget {
             trailing: done ? null : (meters > 1 ? formatMeters(meters) : null),
             done: done,
             highlighted: isNow,
-            badge: s.isCheckpoint ? '確認' : null,
+            badge: s.isCheckpoint ? '目印' : null,
           );
         },
       ),

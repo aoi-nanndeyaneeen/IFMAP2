@@ -102,6 +102,210 @@ class AppConfig {
         building: '豊田高専',
         floorName: '3F'),
 
+    // --- 学寮（tool/pdf_maps で見取り図PDFから自動生成） ---
+    MapSection(
+        path: 'assets/dorm/YUSHI_1F.json',
+        label: 'YUSHI_1F',
+        floorLevel: 1,
+        building: '友志寮',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/dorm/YUSHI_2F.json',
+        label: 'YUSHI_2F',
+        floorLevel: 2,
+        building: '友志寮',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/dorm/YUSHI_3F.json',
+        label: 'YUSHI_3F',
+        floorLevel: 3,
+        building: '友志寮',
+        floorName: '3F'),
+    MapSection(
+        path: 'assets/dorm/KISHI_1F.json',
+        label: 'KISHI_1F',
+        floorLevel: 1,
+        building: '輝志寮',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/dorm/KISHI_2F.json',
+        label: 'KISHI_2F',
+        floorLevel: 2,
+        building: '輝志寮',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/dorm/KISHI_3F.json',
+        label: 'KISHI_3F',
+        floorLevel: 3,
+        building: '輝志寮',
+        floorName: '3F'),
+    MapSection(
+        path: 'assets/dorm/EISHI_1F.json',
+        label: 'EISHI_1F',
+        floorLevel: 1,
+        building: '栄志寮',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/dorm/EISHI_2F.json',
+        label: 'EISHI_2F',
+        floorLevel: 2,
+        building: '栄志寮',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/dorm/EISHI_3F.json',
+        label: 'EISHI_3F',
+        floorLevel: 3,
+        building: '栄志寮',
+        floorName: '3F'),
+    MapSection(
+        path: 'assets/dorm/KOSHI_1F.json',
+        label: 'KOSHI_1F',
+        floorLevel: 1,
+        building: '高志寮',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/dorm/KOSHI_2F.json',
+        label: 'KOSHI_2F',
+        floorLevel: 2,
+        building: '高志寮',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/dorm/KOSHI_3F.json',
+        label: 'KOSHI_3F',
+        floorLevel: 3,
+        building: '高志寮',
+        floorName: '3F'),
+    MapSection(
+        path: 'assets/dorm/KOSHI_4F.json',
+        label: 'KOSHI_4F',
+        floorLevel: 4,
+        building: '高志寮',
+        floorName: '4F'),
+    MapSection(
+        path: 'assets/dorm/MEISHI_1F.json',
+        label: 'MEISHI_1F',
+        floorLevel: 1,
+        building: '明志寮',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/dorm/MEISHI_2F.json',
+        label: 'MEISHI_2F',
+        floorLevel: 2,
+        building: '明志寮',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/dorm/MEISHI_3F.json',
+        label: 'MEISHI_3F',
+        floorLevel: 3,
+        building: '明志寮',
+        floorName: '3F'),
+    MapSection(
+        path: 'assets/dorm/MEISHI_4F.json',
+        label: 'MEISHI_4F',
+        floorLevel: 4,
+        building: '明志寮',
+        floorName: '4F'),
+    MapSection(
+        path: 'assets/dorm/SOSHI_1F.json',
+        label: 'SOSHI_1F',
+        floorLevel: 1,
+        building: '創志寮',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/dorm/SOSHI_2F.json',
+        label: 'SOSHI_2F',
+        floorLevel: 2,
+        building: '創志寮',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/dorm/SOSHI_3F.json',
+        label: 'SOSHI_3F',
+        floorLevel: 3,
+        building: '創志寮',
+        floorName: '3F'),
+    MapSection(
+        path: 'assets/dorm/SOSHI_4F.json',
+        label: 'SOSHI_4F',
+        floorLevel: 4,
+        building: '創志寮',
+        floorName: '4F'),
+    MapSection(
+        path: 'assets/dorm/TAISHI_1F.json',
+        label: 'TAISHI_1F',
+        floorLevel: 1,
+        building: '大志寮',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/dorm/TAISHI_2F.json',
+        label: 'TAISHI_2F',
+        floorLevel: 2,
+        building: '大志寮',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/dorm/TAISHI_3F.json',
+        label: 'TAISHI_3F',
+        floorLevel: 3,
+        building: '大志寮',
+        floorName: '3F'),
+    MapSection(
+        path: 'assets/dorm/TAISHI_4F.json',
+        label: 'TAISHI_4F',
+        floorLevel: 4,
+        building: '大志寮',
+        floorName: '4F'),
+
+    // --- 福利厚生施設（tool/pdf_maps で見取り図PDFから自動生成） ---
+    MapSection(
+        path: 'assets/welfare/WELFARE_1F.json',
+        label: 'WELFARE_1F',
+        floorLevel: 1,
+        building: '福利厚生会館・食堂',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/welfare/WELFARE_2F.json',
+        label: 'WELFARE_2F',
+        floorLevel: 2,
+        building: '福利厚生会館・食堂',
+        floorName: '2F'),
+    MapSection(
+        path: 'assets/welfare/TRAINING_1F.json',
+        label: 'TRAINING_1F',
+        floorLevel: 1,
+        building: '合宿研修施設',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/welfare/TRAINING_2F.json',
+        label: 'TRAINING_2F',
+        floorLevel: 2,
+        building: '合宿研修施設',
+        floorName: '2F'),
+
+    // --- 体育施設（tool/pdf_maps で見取り図PDFから自動生成） ---
+    MapSection(
+        path: 'assets/gym/GYM1_1F.json',
+        label: 'GYM1_1F',
+        floorLevel: 1,
+        building: '第1体育館',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/gym/GYM2_1F.json',
+        label: 'GYM2_1F',
+        floorLevel: 1,
+        building: '第2体育館',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/gym/BUDO_1F.json',
+        label: 'BUDO_1F',
+        floorLevel: 1,
+        building: '武道場・卓球場',
+        floorName: '1F'),
+    MapSection(
+        path: 'assets/gym/KYUDO_1F.json',
+        label: 'KYUDO_1F',
+        floorLevel: 1,
+        building: '弓道場',
+        floorName: '1F'),
+
     // --- HOME ---
     // anchorLat/Lng は未設定。設定するとGPSで建物接近を検知できる。
     MapSection(

@@ -271,8 +271,11 @@ class _StepDiagnosticsState extends State<_StepDiagnostics> {
       for (final e in c.turnDiagnostics.entries) '${e.key}: ${e.value}',
       '経路: ${c.currentPath.isEmpty ? 'なし（経路がないと歩数は数えない）' : '${c.currentPath.length} ノード'}',
       '進んだ距離: ${traveledM.toStringAsFixed(1)} m',
+      '学んだ歩幅: ${(c.strideScale * AppConfig.strideMeters).toStringAsFixed(2)} m'
+          '（標準の ${(c.strideScale * 100).toStringAsFixed(0)}%）',
+      '最後に位置を合わせてから: ${c.walkedSinceFixMeters.toStringAsFixed(1)} m',
       '次のチェックポイント: ${c.nextGate?.label ?? 'なし'}'
-          '${c.nextGate != null ? '（通過をタップするまでここで止まる）' : ''}',
+          '${c.nextGate != null ? '（通り過ぎれば自動で進む）' : ''}',
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
