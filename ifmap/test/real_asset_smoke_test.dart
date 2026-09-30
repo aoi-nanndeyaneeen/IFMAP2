@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ifmap/config.dart';
 import 'package:ifmap/data/map_data.dart';
 import 'package:ifmap/routing/route_calculator.dart';
+import 'package:ifmap/routing/route_planner.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -99,6 +100,36 @@ void main() {
         final p = parsedByLabel[s.label]!;
         expect((p['nodes'] as Map), isNotEmpty, reason: s.label);
         expect((p['destinations'] as List), isNotEmpty, reason: s.label);
+      }
+    });
+
+    test('別の建物の部屋へ、屋外を通って行ける', () {
+      final nodesByLabel = {
+        for (final e in parsedByLabel.entries)
+          e.key: (e.value['nodes'] as Map).cast<String, dynamic>(),
+      };
+      final labels = AppConfig.mapSections.map((s) => s.label).toList();
+      String idOf(String label, String name) =>
+          (parsedByLabel[label]!['entryIdByName'] as Map)[name] as String;
+
+      // 寮の2F → 本棟の2F、体育館 → 寮の4F
+      for (final (from, fromName, to, toName) in [
+        ('TAISHI_2F', '大志寮_2F_シャワー洗濯室', 'NITTC_2F', '221講義室'),
+        ('GYM1_1F', '第1体育館_1F_小会議室', 'SOSHI_4F', '創志寮_4F_洗面(1)'),
+      ]) {
+        final request = RoutePlanRequest(
+          nodesByLabel: nodesByLabel,
+          sectionLabels: labels,
+          startId: idOf(from, fromName),
+          goalId: idOf(to, toName),
+          startLabel: from,
+          goalLabel: to,
+        );
+        final result = RoutePlanner.plan(request);
+        expect(result.keys.first, from, reason: '$fromName → $toName');
+        expect(result.keys.last, to, reason: '$fromName → $toName');
+        expect(result.keys, contains('NITTC_ground_1F'));
+        expect(RoutePlanner.planFromMessage(request.trimmed().toMessage()), result);
       }
     });
 

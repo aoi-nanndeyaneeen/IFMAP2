@@ -512,13 +512,13 @@ class NavigationController extends ChangeNotifier {
   }
 
   /// [from] から [to] へ向かうとき、次に踏むフロア。
+  /// 経路は通るフロアの順に並んでいるので、その並びで [from] の次。
+  /// （建物をまたぐと mapSections の並びとは一致しない: 寮 → 屋外 → 本棟）
   String? _floorAfter(String from, String to) {
-    final labels = AppConfig.mapSections.map((e) => e.label).toList();
-    final fromIdx = labels.indexOf(from);
-    final toIdx = labels.indexOf(to);
-    if (fromIdx == -1 || toIdx == -1 || fromIdx == toIdx) return null;
-    final next = fromIdx + (toIdx > fromIdx ? 1 : -1);
-    return next >= 0 && next < labels.length ? labels[next] : null;
+    final labels = floorPaths.keys.toList();
+    final i = labels.indexOf(from);
+    if (from == to || i == -1 || i + 1 >= labels.length) return null;
+    return labels[i + 1];
   }
 
   // ─── フロア操作 ───────────────────────────────────────────────

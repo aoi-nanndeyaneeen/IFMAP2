@@ -187,6 +187,54 @@ void main() {
       expect(result['F1'], ['x1', 'goal']);
     });
 
+    test('別の建物へは、屋外を通って並びの離れたフロアへ行ける', () {
+      // 並び: 寮2F, 寮1F, 本棟1F, 本棟2F, 屋外
+      // 寮2F -(階段)-> 寮1F -(玄関)-> 屋外 -(入口)-> 本棟1F -(階段)-> 本棟2F
+      final nodes = {
+        'D2': {
+          'start': _node(0, 0, ['ds2']),
+          'ds2': _node(1, 0, ['start'], {'isStairs': true, 'name': '寮_階段'}),
+        },
+        'D1': {
+          'ds1': _node(1, 0, ['dg'], {'isStairs': true, 'name': '寮_階段'}),
+          'dg': _node(2, 0, ['ds1'],
+              {'isConnector': true, 'name': '寮玄関', 'connectsToMap': 'OUT'}),
+        },
+        'M1': {
+          'mg': _node(0, 0, ['ms1'],
+              {'isConnector': true, 'name': '本棟入口', 'connectsToMap': 'OUT'}),
+          'ms1': _node(1, 0, ['mg'], {'isStairs': true, 'name': '本棟_階段'}),
+        },
+        'M2': {
+          'ms2': _node(1, 0, ['goal'], {'isStairs': true, 'name': '本棟_階段'}),
+          'goal': _node(2, 0, ['ms2']),
+        },
+        'OUT': {
+          'od': _node(0, 0, ['r'],
+              {'isConnector': true, 'name': '寮玄関', 'connectsToMap': 'D1'}),
+          'r': _node(5, 0, ['od', 'om']),
+          'om': _node(9, 0, ['r'],
+              {'isConnector': true, 'name': '本棟入口', 'connectsToMap': 'M1'}),
+        },
+      };
+      final request = RoutePlanRequest(
+        nodesByLabel: nodes,
+        sectionLabels: const ['D2', 'D1', 'M1', 'M2', 'OUT'],
+        startId: 'start',
+        goalId: 'goal',
+        startLabel: 'D2',
+        goalLabel: 'M2',
+      );
+      final result = RoutePlanner.plan(request);
+      expect(result.keys, ['D2', 'D1', 'OUT', 'M1', 'M2']);
+      expect(result['OUT'], ['od', 'r', 'om']);
+      expect(result['M2']!.last, 'goal');
+      // 寮1F と本棟1F は並びで隣り合っているが、階段の名前が違うので直接は行けない。
+      expect(RoutePlanner.floorGraph(nodes, request.sectionLabels)['D1'], {'D2', 'OUT'});
+      // Isolate に渡す前の絞り込みでも、屋外は残る。
+      expect(RoutePlanner.planFromMessage(request.trimmed().toMessage()), result);
+    });
+
     test('階段も接続点もなければ途中で打ち切る', () {
       final result = RoutePlanner.plan(RoutePlanRequest(
         nodesByLabel: {
@@ -204,7 +252,7 @@ void main() {
   });
 
   group('trimmed', () {
-    test('出発フロアと目的フロアの間だけを残す', () {
+    test('経路に使われうるフロアのノードだけを残す', () {
       final request = RoutePlanRequest(
         nodesByLabel: {
           'F1': {'a': _node(0, 0, <String>[])},
@@ -219,7 +267,8 @@ void main() {
       );
       final trimmed = request.trimmed();
       expect(trimmed.nodesByLabel.keys.toSet(), {'F1', 'F2'});
-      expect(trimmed.sectionLabels, ['F1', 'F2']);
+      // 並びは階段の隣り合いを表すのでそのまま。
+      expect(trimmed.sectionLabels, labels);
     });
 
     test('往復してもメッセージ経由で同じ結果になる', () {

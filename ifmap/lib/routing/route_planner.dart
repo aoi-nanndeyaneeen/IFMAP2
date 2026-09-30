@@ -16,12 +16,18 @@
 //   isStairs   : 接続点がないときの代替。両フロアで name が一致する階段を
 //                同じ階段とみなして対応づける。
 //
-// どの階段を使うかは、通るフロアを「フロア番号つきの1つのグラフ」として
-// まとめて最短経路を探して決める。フロアごとに最寄りの階段を選ぶと、
-// 降りた先のフロアで目的地側へ歩いて行けない（同じフロアでも通路が
-// つながっていない棟がある）ときに行き止まりへ案内してしまうため。
-// 階移動の辺は次のフロアへの一方通行なので、各フロアは経路上に
-// ひと続きで1回だけ現れる。
+// どのフロアをどの順に通るかは「フロアのつながり」から探す。
+//   階段  : mapSections で隣り合うフロアどうし（同じ名前の階段があるとき）
+//   接続点: 並びに関係なく、行き先に指定したフロアへ
+// 寮の2Fから本棟の3Fへ、なら 寮2F → 寮1F → 屋外 → 本棟1F → 2F → 3F。
+// 並びの上で間にある別の建物のフロアは通らない。
+//
+// 候補になるフロアの並び（遠回りしすぎないもの）それぞれについて、
+// 通るフロアを「フロア番号つきの1つのグラフ」としてまとめて最短経路を探し、
+// いちばん短いものを採る。フロアごとに最寄りの階段を選ぶと、降りた先の
+// フロアで目的地側へ歩いて行けない（同じフロアでも通路がつながっていない
+// 棟がある）ときに行き止まりへ案内してしまうため。
+// 各フロアは経路上にひと続きで1回だけ現れる（同じフロアへ戻る並びは採らない）。
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
@@ -52,26 +58,24 @@ class RoutePlanRequest {
     required this.goalLabel,
   });
 
-  /// 出発フロアと目的フロアの間にあるフロアだけを残す。
+  /// 経路に使われうるフロア（候補の並びに出てくるもの）のノードだけを残す。
   ///
   /// 関係ないフロアのノードまで compute() に渡すと、ネイティブでは
   /// Isolate へのコピーが、Web では単に無駄なメモリ参照が発生する。
   /// 現状 1フロアに2万ノードあるので、この絞り込みの効果は大きい。
+  /// sectionLabels は階段の隣り合いを表すので、そのまま残す。
   RoutePlanRequest trimmed() {
-    final sIdx = sectionLabels.indexOf(startLabel);
-    final gIdx = sectionLabels.indexOf(goalLabel);
-    if (sIdx == -1 || gIdx == -1) return this;
-
-    final lo = sIdx < gIdx ? sIdx : gIdx;
-    final hi = sIdx < gIdx ? gIdx : sIdx;
-    final needed = sectionLabels.sublist(lo, hi + 1);
-
+    final needed = <String>{
+      startLabel,
+      goalLabel,
+      for (final seq in RoutePlanner.floorSequences(this)) ...seq,
+    };
     return RoutePlanRequest(
       nodesByLabel: {
         for (final label in needed)
           if (nodesByLabel.containsKey(label)) label: nodesByLabel[label]!,
       },
-      sectionLabels: needed,
+      sectionLabels: sectionLabels,
       startId: startId,
       goalId: goalId,
       startLabel: startLabel,
@@ -125,29 +129,127 @@ class RoutePlanner {
       return result;
     }
 
-    final sIdx = r.sectionLabels.indexOf(r.startLabel);
-    final gIdx = r.sectionLabels.indexOf(r.goalLabel);
-    if (sIdx == -1 || gIdx == -1) return result;
+    // フロアどうしの乗り継ぎは、並びが変わっても同じものを使い回す。
+    final cache = <(String, String), Map<String, String>>{};
+    Map<String, String> transitionsOf(String a, String b) => cache.putIfAbsent(
+        (a, b),
+        () => _transitions(r.nodesByLabel[a] ?? const {}, a,
+            r.nodesByLabel[b] ?? const {}, b));
 
-    final direction = gIdx > sIdx ? 1 : -1;
-    final labels = <String>[
-      for (var i = sIdx; direction > 0 ? i <= gIdx : i >= gIdx; i += direction)
-        r.sectionLabels[i],
-    ];
-    final floors = <Map<String, dynamic>>[
-      for (final label in labels) r.nodesByLabel[label] ?? const <String, dynamic>{},
-    ];
-    final transitions = <Map<String, String>>[
-      for (var i = 0; i < labels.length - 1; i++)
-        _transitions(floors[i], labels[i], floors[i + 1], labels[i + 1]),
-    ];
-
-    final path = _layeredDijkstra(floors, transitions, r.startId, r.goalId);
-    if (path == null) return result;
-    for (final (floor, id) in path) {
-      result.putIfAbsent(labels[floor], () => <String>[]).add(id);
+    List<(int, String)>? best;
+    List<String>? bestLabels;
+    var bestCost = double.infinity;
+    for (final labels in floorSequences(r)) {
+      final floors = <Map<String, dynamic>>[
+        for (final label in labels) r.nodesByLabel[label] ?? const <String, dynamic>{},
+      ];
+      final transitions = <Map<String, String>>[
+        for (var i = 0; i < labels.length - 1; i++)
+          transitionsOf(labels[i], labels[i + 1]),
+      ];
+      final found = _layeredDijkstra(floors, transitions, r.startId, r.goalId);
+      if (found != null && found.$2 < bestCost) {
+        best = found.$1;
+        bestCost = found.$2;
+        bestLabels = labels;
+      }
+    }
+    if (best == null) return result;
+    for (final (floor, id) in best) {
+      result.putIfAbsent(bestLabels![floor], () => <String>[]).add(id);
     }
     return result;
+  }
+
+  /// 出発フロアから目的フロアまで、通るフロアの並びの候補。
+  ///
+  /// フロアを点、乗り継げるところ（階段・接続点）を辺にしたグラフで、
+  /// 同じフロアを2度通らない道筋のうち、乗り継ぎの回数が最少+1回以内のもの。
+  /// 最少のものだけにしないのは、乗り継ぎが1回多くても歩く距離が
+  /// 短いことがあるため（別の出入口から屋外を回る など）。
+  @visibleForTesting
+  static List<List<String>> floorSequences(RoutePlanRequest r,
+      {int maxCandidates = 24}) {
+    final graph = floorGraph(r.nodesByLabel, r.sectionLabels);
+    if (r.startLabel == r.goalLabel) return [[r.startLabel]];
+
+    // 目的フロアまでの最少の乗り継ぎ回数（逆向きに幅優先）。
+    final hopsToGoal = <String, int>{r.goalLabel: 0};
+    final queue = [r.goalLabel];
+    for (var i = 0; i < queue.length; i++) {
+      final cur = queue[i];
+      for (final e in graph.entries) {
+        if (e.value.contains(cur) && !hopsToGoal.containsKey(e.key)) {
+          hopsToGoal[e.key] = hopsToGoal[cur]! + 1;
+          queue.add(e.key);
+        }
+      }
+    }
+    final minHops = hopsToGoal[r.startLabel];
+    if (minHops == null) return const [];
+    final limit = minHops + 1;
+
+    final out = <List<String>>[];
+    void walk(List<String> path) {
+      if (out.length >= maxCandidates) return;
+      final cur = path.last;
+      if (cur == r.goalLabel) {
+        out.add(List.of(path));
+        return;
+      }
+      for (final next in graph[cur] ?? const <String>{}) {
+        if (path.contains(next)) continue;
+        final rest = hopsToGoal[next];
+        if (rest == null || path.length + rest > limit) continue;
+        path.add(next);
+        walk(path);
+        path.removeLast();
+      }
+    }
+
+    walk([r.startLabel]);
+    out.sort((a, b) => a.length.compareTo(b.length));
+    return out;
+  }
+
+  /// フロアラベル -> そこから乗り継げるフロア。
+  ///   接続点: 行き先に指定したフロアへ（相手側にも戻りの接続点があるとき）
+  ///   階段  : sectionLabels で隣り合うフロアへ（同じ名前の階段があるとき）
+  @visibleForTesting
+  static Map<String, Set<String>> floorGraph(
+      Map<String, Map<String, dynamic>> nodesByLabel, List<String> sectionLabels) {
+    final graph = <String, Set<String>>{
+      for (final label in nodesByLabel.keys) label: <String>{},
+    };
+    final stairNames = <String, Set<String>>{};
+    for (final e in nodesByLabel.entries) {
+      final names = <String>{};
+      for (final v in e.value.values) {
+        if (v is! Map) continue;
+        if (v['isStairs'] == true && v['name'] is String) names.add(v['name'] as String);
+        if (v['isConnector'] == true) {
+          for (final to in [v['connectsToMap'], v['connectsToNode']]) {
+            if (to is String && to != e.key && nodesByLabel.containsKey(to)) {
+              graph[e.key]!.add(to);
+            }
+          }
+        }
+      }
+      stairNames[e.key] = names;
+    }
+    // 接続点は、向こうに戻りの接続点がなければ降りる場所がない。
+    for (final e in graph.entries) {
+      e.value.removeWhere((to) =>
+          connectorsTo(nodesByLabel[to]!, e.key).isEmpty);
+    }
+    for (var i = 0; i + 1 < sectionLabels.length; i++) {
+      final a = sectionLabels[i], b = sectionLabels[i + 1];
+      final sa = stairNames[a], sb = stairNames[b];
+      if (sa == null || sb == null || sa.intersection(sb).isEmpty) continue;
+      graph[a]!.add(b);
+      graph[b]!.add(a);
+    }
+    return graph;
   }
 
   /// [from] フロアから [to] フロアへ抜ける出口と、そこから出た先の降り口。
@@ -184,8 +286,8 @@ class RoutePlanner {
 
   /// フロア番号つきのノード (floor, id) を状態にしたダイクストラ法。
   /// フロア内は通常の辺（ユークリッド距離）、フロア間は [transitions] の
-  /// 一方通行の辺（コスト0）でつなぐ。行けなければ null。
-  static List<(int, String)>? _layeredDijkstra(
+  /// 一方通行の辺（コスト0）でつなぐ。経路とその長さ。行けなければ null。
+  static (List<(int, String)>, double)? _layeredDijkstra(
     List<Map<String, dynamic>> floors,
     List<Map<String, String>> transitions,
     String startId,
@@ -243,7 +345,7 @@ class RoutePlanner {
       path.add(cur);
       cur = prev[cur.$1][cur.$2];
     }
-    return path.reversed.toList();
+    return (path.reversed.toList(), dist[last][goalId]!);
   }
 
   static double _distance(Map a, Map b) {

@@ -2,6 +2,7 @@
 #   python tool/pdf_maps/gen.py render                        … フロアごとに線画(記号除去)と下絵を作る
 #   dart run tool/detect_walls.dart tool/pdf_maps/work/jobs.json … エディタの壁の自動生成
 #   python tool/pdf_maps/gen.py build                         … 部屋・通路・扉・階段を決めてJSONを書く
+#   python tool/pdf_maps/link_outdoor.py                      … 各建物の出入口と屋外図を接続点でつなぐ
 #   python tool/pdf_maps/build_index.py                       … 区域/建物/階/部屋の索引を書く
 #   python tool/pdf_maps/viz.py [ラベル...]                    … 確認用の絵 (work/viz/)
 #   python tool/pdf_maps/check.py                             … 階段のつながり・到達できない部屋
@@ -248,6 +249,7 @@ def build():
         cv2.floodFill(ff, mask, (0, 0), 128)
         foot = (ff != 128).astype(np.uint8)
         cellfoot = cv2.resize(foot.astype(np.float32), (C, R), interpolation=cv2.INTER_AREA) > 0.5
+        np.save(f'{WORK}/{label}_foot.npy', cellfoot)  # link_outdoor.py が屋外図と重ねるのに使う
 
         # 外形の境目には必ず壁
         wr[:, :-1] |= cellfoot[:, :-1] != cellfoot[:, 1:]
