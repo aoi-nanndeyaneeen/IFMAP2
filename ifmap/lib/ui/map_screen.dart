@@ -508,33 +508,48 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
+      // 建物は20以上あるので、画面の高さを超えたらスクロールする。
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.85),
       builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('建物を選ぶ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            ),
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 8, 4),
+            child: Row(children: [
+              const Expanded(
+                child: Text('建物を選ぶ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              ),
+              IconButton(
+                tooltip: '閉じる',
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ]),
           ),
-          for (final e in buildings.entries)
-            ListTile(
-              leading: const Icon(Icons.apartment, color: AppColors.textSecondary),
-              title: Text(e.key),
-              subtitle: Text(e.value.map((s) => s.floorDisplayName).join(' · ')),
-              trailing: e.key == c.currentFloor?.section.buildingName
-                  ? const Icon(Icons.check, color: AppColors.primary)
-                  : null,
-              onTap: () {
-                Navigator.pop(ctx);
-                final target = e.value.firstWhere(
-                    (s) => s.label == c.trackerLabel || s.label == c.goal?.label,
-                    orElse: () => e.value.firstWhere((s) => !s.outdoor, orElse: () => e.value.first));
-                _showFloor(target.label);
-              },
-            ),
-          const SizedBox(height: 8),
+          const Divider(),
+          Expanded(
+            child: ListView(children: [
+              for (final e in buildings.entries)
+                ListTile(
+                  leading: const Icon(Icons.apartment, color: AppColors.textSecondary),
+                  title: Text(e.key),
+                  subtitle: Text(e.value.map((s) => s.floorDisplayName).join(' · ')),
+                  trailing: e.key == c.currentFloor?.section.buildingName
+                      ? const Icon(Icons.check, color: AppColors.primary)
+                      : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    final target = e.value.firstWhere(
+                        (s) => s.label == c.trackerLabel || s.label == c.goal?.label,
+                        orElse: () => e.value.firstWhere((s) => !s.outdoor, orElse: () => e.value.first));
+                    _showFloor(target.label);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ]),
+          ),
         ]),
       ),
     );

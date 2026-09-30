@@ -139,6 +139,7 @@ lib/
   config.dart                     定数・マップ一覧・設定トグル
   data/
     map_data.dart                 JSON読み込み、索引づくり、名前解決
+    campus_index.dart             区域/建物/階/部屋の索引（assets/campus_index.json）。検索の「建物から探す」に使う
   routing/
     route_calculator.dart         1フロア内のダイクストラ法
     route_planner.dart            階をまたぐ経路の組み立て

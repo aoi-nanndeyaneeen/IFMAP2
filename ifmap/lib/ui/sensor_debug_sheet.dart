@@ -22,6 +22,10 @@ Future<void> showSensorDebugSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    // 開いた直後に全部が見えるよう高さを持たせる（下にスクロールできる）。
+    constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
     builder: (_) => _SensorDebugSheet(controller: controller),
   );
 }
@@ -51,21 +55,37 @@ class _SensorDebugSheetState extends State<_SensorDebugSheet> {
   Widget build(BuildContext context) {
     final c = widget.controller;
     return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('センサー診断',
+      child: Column(children: [
+        // 上に固定した見出しと閉じるボタン。スクロールしても消えない。
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 4, 0),
+          child: Row(children: [
+            const Expanded(
+              child: Text('センサー診断',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
+            ),
+            IconButton(
+              key: const ValueKey('close-debug'),
+              tooltip: '閉じる',
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ]),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
 
               ValueListenableBuilder<double>(
                 valueListenable: c.altitude,
@@ -130,10 +150,20 @@ class _SensorDebugSheetState extends State<_SensorDebugSheet> {
               const Divider(height: 24),
 
               const _CompassDiagnostics(),
-            ],
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('閉じる'),
+                ),
+              ),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+      ]),
     );
   }
 

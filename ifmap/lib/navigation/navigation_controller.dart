@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../config.dart';
+import '../data/campus_index.dart';
 import '../data/map_data.dart';
 import '../routing/route_calculator.dart';
 import '../routing/route_planner.dart';
@@ -55,6 +56,9 @@ class NavigationController extends ChangeNotifier {
   }
 
   final MapRepository repo;
+
+  /// 区域 / 建物 / 階 / 部屋 の索引。読み込むまでは空（検索は建物抜きで動く）。
+  CampusIndex campus = CampusIndex.empty;
   final StepTracker _tracker;
   late final SuggestionPolicy _policy;
 
@@ -234,6 +238,8 @@ class NavigationController extends ChangeNotifier {
             kind: MessageKind.error));
       },
     );
+
+    if (!_disposed && !repo.isEmpty) campus = await CampusIndex.load(repo);
 
     loadState = repo.isEmpty ? LoadState.failed : LoadState.ready;
     _tracker.start();
