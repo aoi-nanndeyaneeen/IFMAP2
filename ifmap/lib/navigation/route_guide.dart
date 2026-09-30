@@ -28,6 +28,7 @@ enum Maneuver {
   enterRoom,
   exitRoom,
   door,
+  checkpoint,
   exitBuilding,
   enterBuilding,
   connector,
@@ -154,7 +155,14 @@ class RouteGuide {
     final Maneuver m;
     final String title;
     String? subtitle;
-    if (g.isDoor) {
+    if (g.isCheck) {
+      m = Maneuver.checkpoint;
+      title = '現在地を確認';
+      subtitle = '地図の印の場所に来たらタップ';
+    } else if (g.turn != null) {
+      m = _turnManeuver(g.turn!) ?? (g.turn! > 0 ? Maneuver.right : Maneuver.left);
+      title = _turnTitle(m);
+    } else if (g.isDoor) {
       m = Maneuver.door;
       title = '扉を通る';
     } else if (g.id == '外' && !g.isEnter) {

@@ -506,11 +506,11 @@ class RoutePreviewSheet extends StatelessWidget {
                 ),
               _InfoChip(
                 icon: Icons.fact_check_outlined,
-                text: 'チェックポイント ${c.checkpoints.length}',
+                text: '位置合わせ ${c.checkpoints.length} 回',
               ),
               _InfoChip(
                 icon: Icons.turn_right,
-                text: '曲がる ${c.guideSteps.where((s) => !s.isCheckpoint && !s.isFinal).length} 回',
+                text: '曲がる ${c.checkpoints.where((g) => g.turn != null).length} 回',
               ),
             ]),
             const SizedBox(height: 4),

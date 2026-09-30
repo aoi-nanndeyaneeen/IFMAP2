@@ -164,6 +164,16 @@ class AppConfig {
   /// 1歩あたりの JSON-px 数。= 0.7 / 0.05 = 14.0 px
   static const double stepLengthPx = strideMeters / metersPerPx;
 
+  /// 曲がり角の前後この距離(m)は、歩数の進みを [cornerStepBoost] 倍にする。
+  /// 経路はマスの中心を直角に結ぶが、人は角を斜めに切って最短で歩くので、
+  /// 同じ歩数でも経路に沿った距離は多く進んだことになる。
+  static const double cornerZoneMeters = 2.5;
+  static const double cornerStepBoost = 2.0;
+
+  /// 位置を合わせるタップの間隔の上限(m)。扉・部屋の出入り・曲がり角の
+  /// ほかに、これだけ空いたら「現在地を確認」を挟む。
+  static const double maxCheckpointGapMeters = 30.0;
+
   // 1歩の検出は sensors/step_detector.dart（周期性とリズムで判定）。
 
   // ── 高度・気圧 ───────────────────────────────────────────────

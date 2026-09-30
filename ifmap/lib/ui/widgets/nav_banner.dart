@@ -179,6 +179,15 @@ class NavBanner extends StatelessWidget {
 
   static String _pastTense(GuideStep s) => switch (s.maneuver) {
         Maneuver.door => '扉を通った',
+        Maneuver.checkpoint => 'ここに来た',
+        Maneuver.slightLeft ||
+        Maneuver.left ||
+        Maneuver.sharpLeft ||
+        Maneuver.slightRight ||
+        Maneuver.right ||
+        Maneuver.sharpRight ||
+        Maneuver.uTurn =>
+          '曲がった',
         Maneuver.enterRoom => '入った',
         Maneuver.exitRoom => '出た',
         Maneuver.exitBuilding => '外に出た',

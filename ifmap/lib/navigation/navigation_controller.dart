@@ -44,7 +44,11 @@ enum LoadState { loading, ready, failed }
 class NavigationController extends ChangeNotifier {
   NavigationController({MapRepository? repository, StepTracker? tracker})
       : repo = repository ?? MapRepository(),
-        _tracker = tracker ?? StepTracker() {
+        _tracker = tracker ??
+            StepTracker(
+              turnCheckpoints: true,
+              cornerBoost: AppConfig.cornerStepBoost,
+            ) {
     _policy = SuggestionPolicy(distanceBetween: Geolocator.distanceBetween);
   }
 
@@ -696,7 +700,8 @@ class NavigationController extends ChangeNotifier {
     final geo = routeGeometry(trackerLabel);
     if (geo == null || goal == null) return const [];
     return _guideCache = RouteGuide.build(
-      corners: _tracker.corners,
+      // 曲がり角はチェックポイントとして gates に入っている。
+      corners: _tracker.turnCheckpoints ? const [] : _tracker.corners,
       gates: _tracker.orderedGates,
       totalPx: geo.length,
       end: _floorEndStep(geo.length),

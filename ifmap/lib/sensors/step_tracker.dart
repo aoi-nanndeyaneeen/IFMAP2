@@ -30,13 +30,30 @@ class GateInfo {
   final bool isDoor;
   final double? px;
 
-  const GateInfo(this.id, {this.isEnter = true, this.isDoor = false, this.px});
+  /// 曲がり角のチェックポイントなら曲がる角度(度、右折が正)。
+  final double? turn;
 
-  String get key => isDoor
-      ? '${id}_${px?.toInt()}_door'
-      : (isEnter ? '${id}_${px?.toInt()}_in' : '${id}_${px?.toInt()}_out');
+  /// 距離が空いたところに挟む「現在地を確認」。
+  final bool isCheck;
+
+  const GateInfo(this.id,
+      {this.isEnter = true,
+      this.isDoor = false,
+      this.px,
+      this.turn,
+      this.isCheck = false});
+
+  String get key => isCheck
+      ? '${id}_${px?.toInt()}_chk'
+      : turn != null
+          ? '${id}_${px?.toInt()}_turn'
+          : isDoor
+              ? '${id}_${px?.toInt()}_door'
+              : (isEnter ? '${id}_${px?.toInt()}_in' : '${id}_${px?.toInt()}_out');
 
   String get label {
+    if (isCheck) return '現在地を確認';
+    if (turn != null) return turn! > 0 ? '右に曲がる' : '左に曲がる';
     final name = (id == '扉' || id.startsWith('node_')) ? (isDoor ? '扉' : '外') : id;
     if (isDoor) return '扉を通る';
     if (name == '接続点') return '接続点に到達';
@@ -57,8 +74,19 @@ class StepTracker {
   final double stepLengthPx;
 
   /// [clock] は秒を返す時計。テストで時間を進めるために差し替えられる。
-  StepTracker({this.stepLengthPx = AppConfig.stepLengthPx, double Function()? clock})
-      : _now = clock ?? _stopwatchClock();
+  ///
+  /// [turnCheckpoints] は曲がり角と、距離が空いたところにもチェックポイントを
+  /// 置く。[cornerBoost] は曲がり角の前後で歩数の進みを何倍にするか（1で無効）。
+  /// どちらも実際のアプリでだけ使う（テストの前提を変えないため既定は無効）。
+  StepTracker({
+    this.stepLengthPx = AppConfig.stepLengthPx,
+    double Function()? clock,
+    this.turnCheckpoints = false,
+    this.cornerBoost = 1.0,
+  }) : _now = clock ?? _stopwatchClock();
+
+  final bool turnCheckpoints;
+  final double cornerBoost;
 
   static double Function() _stopwatchClock() {
     final sw = Stopwatch()..start();
@@ -138,8 +166,8 @@ class StepTracker {
     _traveled = 0;
     _gateIdx = 0;
     _buildCumDist();
-    _buildGates();
     _corners = extractCorners(_pathPoints(), _cumDist);
+    _buildGates();
     _progressLog.clear();
     _pendingTurn = null;
     _logProgress();
@@ -290,7 +318,8 @@ class StepTracker {
   void advanceSteps(int steps) {
     if (!hasRoute || steps <= 0) return;
     _lastStepT = _now();
-    _traveled = (_traveled + stepLengthPx * steps).clamp(0.0, _capPx);
+    _traveled =
+        (_traveled + stepLengthPx * steps * _boostAt(_traveled)).clamp(0.0, _capPx);
     _logProgress();
     _posCtrl.add(_calcPosition());
     _distCtrl.add(_traveled);
@@ -302,6 +331,18 @@ class StepTracker {
       if (_now() - pending.t <= _turnWalkWindow) _applyTurn(pending);
     }
   }
+
+  /// 曲がり角の近くでは、人は角を斜めに切るので歩数の進みを増やす。
+  double _boostAt(double d) {
+    if (cornerBoost == 1.0) return 1.0;
+    for (final c in _corners) {
+      if ((c.distance - d).abs() <= _cornerZonePx) return cornerBoost;
+    }
+    return 1.0;
+  }
+
+  static const double _cornerZonePx =
+      AppConfig.cornerZoneMeters / AppConfig.metersPerPx;
 
   /// 次のチェックポイントより先へは進ませない。そこで位置を確定させるため。
   double get _capPx =>
@@ -581,8 +622,49 @@ class StepTracker {
       }
     }
 
+    if (turnCheckpoints) _addTurnAndCheckGates();
+
     _gateIdx = 0;
     _gateCtrl.add(nextGate);
+  }
+
+  /// 曲がり角と、間が空きすぎたところの「現在地を確認」を足す。
+  ///
+  /// 扉や部屋の出入りは経路のどこにでもあるわけではない。長い廊下では
+  /// 歩数の誤差が溜まる一方なので、少なくとも一定距離ごとに位置を
+  /// 合わせられるようにしておく。近くに別のチェックポイントがあれば
+  /// 重ねて出さない（1回のタップで済ませる）。
+  void _addTurnAndCheckGates() {
+    const near = 2.0 / AppConfig.metersPerPx;
+    final all = <_Gate>[..._gates];
+    bool nearOther(double px) => all.any((g) => (g.px - px).abs() < near);
+
+    for (final c in _corners) {
+      if (nearOther(c.distance)) continue;
+      all.add(_Gate(GateInfo('曲がり', turn: c.turn, px: c.distance), c.distance));
+    }
+    all.sort((a, b) => a.px.compareTo(b.px));
+
+    const maxGap = AppConfig.maxCheckpointGapMeters / AppConfig.metersPerPx;
+    final out = <_Gate>[];
+    var prev = 0.0;
+    void fill(double to) {
+      final n = ((to - prev) / maxGap).ceil() - 1;
+      for (var i = 1; i <= n; i++) {
+        final px = prev + (to - prev) * i / (n + 1);
+        out.add(_Gate(GateInfo('確認', isCheck: true, px: px), px));
+      }
+    }
+
+    for (final g in all) {
+      fill(g.px);
+      out.add(g);
+      prev = g.px;
+    }
+    // 最後のチェックポイントから終点まで。終点は到着の操作があるので
+    // ここには足さない（ただし長い区間には途中に挟む）。
+    fill(totalRoutePx - near);
+    _gates = out;
   }
 
   bool _hasDoorBetween(Map a, Map b) {

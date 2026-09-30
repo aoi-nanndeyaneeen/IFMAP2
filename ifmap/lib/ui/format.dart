@@ -47,6 +47,7 @@ IconData maneuverIcon(Maneuver m) => switch (m) {
       Maneuver.enterRoom => Icons.login,
       Maneuver.exitRoom => Icons.logout,
       Maneuver.door => Icons.door_front_door,
+      Maneuver.checkpoint => Icons.pin_drop,
       Maneuver.exitBuilding => Icons.park,
       Maneuver.enterBuilding => Icons.apartment,
       Maneuver.connector => Icons.swap_horiz,
@@ -59,6 +60,15 @@ IconData maneuverIcon(Maneuver m) => switch (m) {
 /// チェックポイントの種類ごとの色（地図の印と案内でそろえる）。
 Color checkpointColor(Maneuver m) => switch (m) {
       Maneuver.door => const Color(0xFFE37400),
+      Maneuver.checkpoint => const Color(0xFF5F6368),
+      Maneuver.slightLeft ||
+      Maneuver.left ||
+      Maneuver.sharpLeft ||
+      Maneuver.slightRight ||
+      Maneuver.right ||
+      Maneuver.sharpRight ||
+      Maneuver.uTurn =>
+        const Color(0xFF1A73E8),
       Maneuver.enterRoom => const Color(0xFF1A73E8),
       Maneuver.exitRoom => const Color(0xFF0B7A83),
       Maneuver.exitBuilding || Maneuver.enterBuilding => const Color(0xFF188038),
