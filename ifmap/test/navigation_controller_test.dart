@@ -292,4 +292,44 @@ void main() {
     expect(ctrl.routing, isFalse);
     expect(ctrl.routeNotFound, isTrue);
   });
+
+  group('位置合わせのタップ', () {
+    MapRepository longCorridor() {
+      final repo = MapRepository();
+      final nodes = <String, dynamic>{};
+      for (var x = 0; x <= 200; x++) {
+        nodes['n$x'] = _node(x, 0,
+            edges: [if (x > 0) 'n${x - 1}', if (x < 200) 'n${x + 1}'],
+            name: x == 0 ? '入口' : (x == 200 ? '奥の部屋' : null));
+      }
+      repo.put(_floor(_f1, 1, nodes));
+      return repo;
+    }
+
+    test('歩き始めてすぐは勧めない', () async {
+      final ctrl = NavigationController(repository: longCorridor());
+      addTearDown(ctrl.dispose);
+      await ctrl.setStartByName('入口');
+      await ctrl.setGoal(const PlaceRef('奥の部屋', _f1));
+
+      ctrl.debugAdvanceSteps(5); // 3.5m
+      expect(ctrl.suggestFix, isFalse);
+    });
+
+    test('しばらく歩いて目印の近くに来たら勧め、押すとしばらく出ない', () async {
+      final ctrl = NavigationController(repository: longCorridor());
+      addTearDown(ctrl.dispose);
+      await ctrl.setStartByName('入口');
+      await ctrl.setGoal(const PlaceRef('奥の部屋', _f1));
+
+      // 100mの直線には25mごとに「現在地を確認」の目印がある
+      ctrl.debugAdvanceSteps(36); // 約25m
+      expect(ctrl.nearbyCheckpoint, isNotNull);
+      expect(ctrl.suggestFix, isTrue);
+
+      ctrl.confirmGate(ctrl.nearbyCheckpoint!.key);
+      expect(ctrl.walkedSinceFixMeters, 0);
+      expect(ctrl.suggestFix, isFalse);
+    });
+  });
 }

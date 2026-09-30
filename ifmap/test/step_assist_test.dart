@@ -129,4 +129,85 @@ void main() {
       expect(t.orderedGates, isEmpty);
     });
   });
+
+  group('タップしなくても進む', () {
+    StepTracker make() {
+      final t = StepTracker(turnCheckpoints: true, autoAdvance: true);
+      addTearDown(t.dispose);
+      return t;
+    }
+
+    test('チェックポイントで止まらず、通り過ぎたら通過済みになる', () {
+      final t = make();
+      final (ids, nodes) = _lShape(40, 40); // 角は400px
+      t.setRoute(ids, nodes);
+      final corner = t.nextGate!;
+
+      t.advanceSteps(35); // 490px
+      expect(t.traveledPx, greaterThan(corner.px!));
+      expect(t.nextGate, isNull);
+      expect(t.passedGateKeys, [corner.key]);
+    });
+
+    test('数えすぎていたら、あとから押したチェックポイントの位置へ戻せる', () {
+      final t = make();
+      final (ids, nodes) = _lShape(40, 40);
+      t.setRoute(ids, nodes);
+      final corner = t.nextGate!;
+
+      t.advanceSteps(35);
+      t.confirmGate(corner.key);
+      expect(t.traveledPx, closeTo(corner.px!, 1e-6));
+    });
+
+    test('QRで合わせると、数えすぎた分を手前へ戻せる', () {
+      final t = make();
+      final (ids, nodes) = _route([for (var x = 0; x <= 200; x++) (x, 0)]);
+      t.setRoute(ids, nodes);
+      t.advanceSteps(10);
+      final fixed = t.traveledPx;
+      expect(t.snapToNode('n12-0'), isNotNull); // 120px へ合わせる
+      expect(t.traveledPx, lessThan(fixed)); // 数えすぎを戻す
+    });
+  });
+
+  group('歩幅を学ぶ', () {
+    test('実際の距離が歩数の見積もりより長ければ歩幅を広げる', () {
+      final t = StepTracker(autoAdvance: true, calibrateStride: true);
+      addTearDown(t.dispose);
+      final (ids, nodes) = _route([for (var x = 0; x <= 400; x++) (x, 0)]);
+      t.setRoute(ids, nodes);
+
+      t.advanceSteps(20); // 見積もり 280px = 14m
+      // 実は 20m（400px）進んでいた
+      t.snapToNode('n40-0');
+      expect(t.strideScale, greaterThan(1.0));
+      expect(t.strideScale, lessThanOrEqualTo(1.4));
+
+      // 学んだ歩幅で次からは多めに進む
+      final before = t.traveledPx;
+      t.advanceSteps(1);
+      expect(t.traveledPx - before, greaterThan(AppConfig.stepLengthPx));
+    });
+
+    test('短い区間では学ばない（誤差のほうが大きい）', () {
+      final t = StepTracker(autoAdvance: true, calibrateStride: true);
+      addTearDown(t.dispose);
+      final (ids, nodes) = _route([for (var x = 0; x <= 400; x++) (x, 0)]);
+      t.setRoute(ids, nodes);
+      t.advanceSteps(3); // 2.1m
+      t.snapToNode('n10-0');
+      expect(t.strideScale, 1.0);
+    });
+
+    test('極端な値には引っぱられない', () {
+      final t = StepTracker(autoAdvance: true, calibrateStride: true);
+      addTearDown(t.dispose);
+      final (ids, nodes) = _route([for (var x = 0; x <= 400; x++) (x, 0)]);
+      t.setRoute(ids, nodes);
+      t.advanceSteps(20); // 14m と見積もって
+      t.snapToNode('n400-0'); // 200m だったことにする
+      expect(t.strideScale, lessThanOrEqualTo(1.4));
+    });
+  });
 }
